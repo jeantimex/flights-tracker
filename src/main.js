@@ -37,7 +37,8 @@ const guiControls = {
   realTimeSun: true,
   simulatedTime: getCurrentTimeHours(),
   timeDisplay: hoursToTimeString(getCurrentTimeHours()),
-  nightBrightness: 0.4,
+  nightBrightness: 1.5,
+  dayBrightness: 2.0,
 };
 
 // Helper function to get current time in decimal hours (0-24)
@@ -90,7 +91,7 @@ function init() {
   ambientLight = new THREE.AmbientLight(0x404040, guiControls.nightBrightness);
   scene.add(ambientLight);
 
-  directionalLight = new THREE.DirectionalLight(0xffffff, 1.8);
+  directionalLight = new THREE.DirectionalLight(0xffffff, guiControls.dayBrightness);
 
   // Initialize sun position based on real time
   updateSunPosition();
@@ -276,14 +277,25 @@ function setupGUI() {
       }
     });
 
-  lightingFolder
-    .add(guiControls, "nightBrightness", 0.0, 2.0, 0.1)
-    .name("Night Brightness")
+  lightingFolder.open();
+
+  // Brightness controls
+  const brightnessFolder = gui.addFolder("Brightness Controls");
+  brightnessFolder
+    .add(guiControls, "dayBrightness", 0.0, 3.0, 0.1)
+    .name("Day")
     .onChange((value) => {
       updateLighting();
     });
 
-  lightingFolder.open();
+  brightnessFolder
+    .add(guiControls, "nightBrightness", 0.0, 2.0, 0.1)
+    .name("Night")
+    .onChange((value) => {
+      updateLighting();
+    });
+
+  brightnessFolder.open();
 }
 
 function updateFlightCount(count) {
@@ -313,8 +325,8 @@ function toggleDayNightEffect(enabled) {
 
 function updateLighting() {
   if (guiControls.dayNightEffect) {
-    // Use night brightness control for ambient lighting
-    directionalLight.intensity = 1.8;
+    // Use brightness controls for realistic day/night lighting
+    directionalLight.intensity = guiControls.dayBrightness;
     ambientLight.intensity = guiControls.nightBrightness;
   }
 }
