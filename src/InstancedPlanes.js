@@ -9,6 +9,16 @@ export class InstancedPlanes {
     this.activeCount = 0;
     this.planeTextures = [];
     this.planeTypes = new Float32Array(maxCount); // Store plane type for each instance
+    this.planeColors = [
+      new THREE.Color(0xE8F5E9), // Green
+      new THREE.Color(0xE1F5FE), // Blue
+      new THREE.Color(0xEDE7F6), // Purple
+      new THREE.Color(0xECEFF1), // Gray
+      new THREE.Color(0xFFFDE7), // Yellow
+      new THREE.Color(0xFFF3E0), // Orange
+      new THREE.Color(0xFFEBEE), // Red
+      new THREE.Color(0xFAFAFA)  // Light Gray
+    ];
     this.createInstancedMesh();
   }
 
@@ -29,7 +39,7 @@ export class InstancedPlanes {
     const material = new THREE.ShaderMaterial({
       uniforms: {
         planeTextures: { value: this.planeTextures },
-        colorTint: { value: new THREE.Color(0xffffff) },
+        planeColors: { value: this.planeColors },
         opacity: { value: 1.0 },
       },
       vertexShader: `
@@ -46,7 +56,7 @@ export class InstancedPlanes {
             `,
       fragmentShader: `
                 uniform sampler2D planeTextures[8];
-                uniform vec3 colorTint;
+                uniform vec3 planeColors[8];
                 uniform float opacity;
                 varying vec2 vUv;
                 varying float vPlaneType;
@@ -54,19 +64,44 @@ export class InstancedPlanes {
                 void main() {
                     int textureIndex = int(vPlaneType);
                     vec4 texColor;
+                    vec3 planeColor;
 
-                    // Sample from the correct texture based on plane type
-                    if (textureIndex == 0) texColor = texture2D(planeTextures[0], vUv);
-                    else if (textureIndex == 1) texColor = texture2D(planeTextures[1], vUv);
-                    else if (textureIndex == 2) texColor = texture2D(planeTextures[2], vUv);
-                    else if (textureIndex == 3) texColor = texture2D(planeTextures[3], vUv);
-                    else if (textureIndex == 4) texColor = texture2D(planeTextures[4], vUv);
-                    else if (textureIndex == 5) texColor = texture2D(planeTextures[5], vUv);
-                    else if (textureIndex == 6) texColor = texture2D(planeTextures[6], vUv);
-                    else texColor = texture2D(planeTextures[7], vUv);
+                    // Sample from the correct texture and color based on plane type
+                    if (textureIndex == 0) {
+                        texColor = texture2D(planeTextures[0], vUv);
+                        planeColor = planeColors[0];
+                    }
+                    else if (textureIndex == 1) {
+                        texColor = texture2D(planeTextures[1], vUv);
+                        planeColor = planeColors[1];
+                    }
+                    else if (textureIndex == 2) {
+                        texColor = texture2D(planeTextures[2], vUv);
+                        planeColor = planeColors[2];
+                    }
+                    else if (textureIndex == 3) {
+                        texColor = texture2D(planeTextures[3], vUv);
+                        planeColor = planeColors[3];
+                    }
+                    else if (textureIndex == 4) {
+                        texColor = texture2D(planeTextures[4], vUv);
+                        planeColor = planeColors[4];
+                    }
+                    else if (textureIndex == 5) {
+                        texColor = texture2D(planeTextures[5], vUv);
+                        planeColor = planeColors[5];
+                    }
+                    else if (textureIndex == 6) {
+                        texColor = texture2D(planeTextures[6], vUv);
+                        planeColor = planeColors[6];
+                    }
+                    else {
+                        texColor = texture2D(planeTextures[7], vUv);
+                        planeColor = planeColors[7];
+                    }
 
-                    // Use only the alpha channel from texture, apply pure color tint
-                    gl_FragColor = vec4(colorTint, texColor.a * opacity);
+                    // Use only the alpha channel from texture, apply plane-specific color
+                    gl_FragColor = vec4(planeColor, texColor.a * opacity);
                 }
             `,
       side: THREE.DoubleSide,
@@ -162,11 +197,6 @@ export class InstancedPlanes {
     this.globalScale = scale;
   }
 
-  setColorTint(color) {
-    if (this.instancedMesh && this.instancedMesh.material.uniforms) {
-      this.instancedMesh.material.uniforms.colorTint.value.copy(color);
-    }
-  }
 
   setOpacity(opacity) {
     if (this.instancedMesh && this.instancedMesh.material.uniforms) {
