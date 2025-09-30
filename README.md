@@ -2,6 +2,8 @@
 
 A real-time 3D visualization of global flight paths with dynamic day/night cycles, built with Three.js. Watch thousands of flights move across a photorealistic Earth with customizable controls and performance optimizations.
 
+https://github.com/user-attachments/assets/a31ce178-a4ca-4692-94b4-429759189e8a
+
 [Flight Tracker Demo](https://jeantimex.github.io/flights-tracker/)
 
 ## 🌟 Features
