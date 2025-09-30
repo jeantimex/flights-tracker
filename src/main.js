@@ -37,6 +37,7 @@ const guiControls = {
   realTimeSun: true,
   simulatedTime: getCurrentTimeHours(),
   timeDisplay: hoursToTimeString(getCurrentTimeHours()),
+  nightBrightness: 0.4,
 };
 
 // Helper function to get current time in decimal hours (0-24)
@@ -86,10 +87,10 @@ function init() {
   document.body.appendChild(stats.dom);
 
   // Add lighting
-  ambientLight = new THREE.AmbientLight(0x404040, 0.4);
+  ambientLight = new THREE.AmbientLight(0x404040, guiControls.nightBrightness);
   scene.add(ambientLight);
 
-  directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
+  directionalLight = new THREE.DirectionalLight(0xffffff, 1.8);
 
   // Initialize sun position based on real time
   updateSunPosition();
@@ -275,6 +276,13 @@ function setupGUI() {
       }
     });
 
+  lightingFolder
+    .add(guiControls, "nightBrightness", 0.0, 2.0, 0.1)
+    .name("Night Brightness")
+    .onChange((value) => {
+      updateLighting();
+    });
+
   lightingFolder.open();
 }
 
@@ -295,13 +303,19 @@ function updateFlightCount(count) {
 
 function toggleDayNightEffect(enabled) {
   if (enabled) {
-    // Enable day/night effect with directional lighting
-    directionalLight.intensity = 1.8;
-    ambientLight.intensity = 0.3;
+    updateLighting();
   } else {
     // Disable day/night effect - make lighting uniform and bright
     directionalLight.intensity = 0.5;
     ambientLight.intensity = 1.2;
+  }
+}
+
+function updateLighting() {
+  if (guiControls.dayNightEffect) {
+    // Use night brightness control for ambient lighting
+    directionalLight.intensity = 1.8;
+    ambientLight.intensity = guiControls.nightBrightness;
   }
 }
 
