@@ -250,3 +250,41 @@ export function pacificToUtcHours(pacificHours) {
   // Convert Pacific to UTC
   return (pacificHours + offsetHours + 24) % 24;
 }
+
+/**
+ * Animate camera from current position to target position with smooth easing
+ * @param {THREE.Camera} camera - The camera to animate
+ * @param {THREE.Vector3} startPosition - Starting camera position
+ * @param {THREE.Vector3} targetPosition - Target camera position
+ * @param {number} duration - Animation duration in milliseconds
+ * @param {number} delay - Delay before starting animation in milliseconds
+ */
+export function animateCameraToPosition(camera, startPosition, targetPosition, duration = 2000, delay = 0) {
+  const animateCamera = () => {
+    const startTime = Date.now();
+
+    function animate() {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+
+      // Use easing function for smooth animation (ease-out cubic)
+      const easeProgress = 1 - Math.pow(1 - progress, 3);
+
+      // Interpolate position
+      camera.position.lerpVectors(startPosition, targetPosition, easeProgress);
+      camera.lookAt(0, 0, 0); // Look at Earth center
+
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      }
+    }
+
+    animate();
+  };
+
+  if (delay > 0) {
+    setTimeout(animateCamera, delay);
+  } else {
+    animateCamera();
+  }
+}

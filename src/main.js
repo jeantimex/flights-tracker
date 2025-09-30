@@ -11,7 +11,8 @@ import {
   getSunVector3,
   getCurrentPacificTimeHours,
   hoursToTimeString,
-  pacificToUtcHours
+  pacificToUtcHours,
+  animateCameraToPosition
 } from "./Utils.js";
 import { flights as flightData } from "./Data.js";
 
@@ -236,10 +237,14 @@ function setInitialCameraPosition() {
   rotatedDirection.y = sunDirection.y;
   rotatedDirection.z = -sunDirection.x * Math.sin(angle) + sunDirection.z * Math.cos(angle);
 
-  const cameraPosition = rotatedDirection.multiplyScalar(cameraDistance);
+  const targetPosition = rotatedDirection.multiplyScalar(cameraDistance);
 
-  camera.position.copy(cameraPosition);
-  camera.lookAt(0, 0, 0); // Look at Earth center
+  // Set a dramatic starting position for animation (much further back)
+  const startPosition = new THREE.Vector3(0, 0, 15000); // Start far away
+  camera.position.copy(startPosition);
+
+  // Animate camera to target position with 1 second delay
+  animateCameraToPosition(camera, startPosition, targetPosition, 2000, 1000);
 }
 
 function updateSunPosition() {
