@@ -76,3 +76,41 @@ export function radiansToDegrees(radians) {
 export function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
+
+/**
+ * Create a Three.js texture from an SVG file
+ * @param {string} svgPath - Path to the SVG file
+ * @returns {THREE.CanvasTexture} Canvas texture containing the rendered SVG
+ */
+export function createSVGTexture(svgPath) {
+  // Create a canvas to render the SVG
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = 256;
+  canvas.height = 256;
+
+  // Load and render SVG
+  fetch(svgPath)
+    .then(response => response.text())
+    .then(svgText => {
+      const img = new Image();
+      const blob = new Blob([svgText], { type: 'image/svg+xml' });
+      const url = URL.createObjectURL(blob);
+
+      img.onload = () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        URL.revokeObjectURL(url);
+
+        // Update texture
+        texture.needsUpdate = true;
+      };
+
+      img.src = url;
+    });
+
+  // Create texture from canvas
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.flipY = false;
+  return texture;
+}

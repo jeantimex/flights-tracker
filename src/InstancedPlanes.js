@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { createSVGTexture } from "./Utils.js";
 
 export class InstancedPlanes {
   constructor(maxCount = 35000, size = 100) {
@@ -9,24 +10,27 @@ export class InstancedPlanes {
     this.createInstancedMesh();
   }
 
+
   createInstancedMesh() {
     // Create shared geometry
     const geometry = new THREE.PlaneGeometry(this.size, this.size);
 
     // Create shared material with custom shader
     const textureLoader = new THREE.TextureLoader();
-    const planeTexture = textureLoader.load("./src/assets/plane.png");
+
+    // Load SVG as texture by creating a canvas from it
+    const svgTexture = createSVGTexture('./src/assets/plane7.svg');
 
     const material = new THREE.ShaderMaterial({
       uniforms: {
-        map: { value: planeTexture },
+        map: { value: svgTexture },
         colorTint: { value: new THREE.Color(0xffffff) },
         opacity: { value: 1.0 },
       },
       vertexShader: `
                 varying vec2 vUv;
                 void main() {
-                    vUv = uv;
+                    vUv = vec2(uv.x, 1.0 - uv.y);
                     vec3 transformed = position;
                     vec4 mvPosition = modelViewMatrix * instanceMatrix * vec4(transformed, 1.0);
                     gl_Position = projectionMatrix * mvPosition;
