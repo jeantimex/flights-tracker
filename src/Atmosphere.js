@@ -47,7 +47,7 @@ export class Atmosphere {
   addToScene(scene) {
     if (this.mesh) {
       scene.add(this.mesh);
-      console.log("Atmosphere added to scene");
+      // console.log("Atmosphere added to scene");
     }
   }
 

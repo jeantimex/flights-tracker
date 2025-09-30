@@ -40,7 +40,7 @@ export class Earth {
   addToScene(scene) {
     if (this.mesh) {
       scene.add(this.mesh);
-      console.log("Earth mesh added to scene");
+      // console.log("Earth mesh added to scene");
     }
     if (this.atmosphere) {
       this.atmosphere.addToScene(scene);
