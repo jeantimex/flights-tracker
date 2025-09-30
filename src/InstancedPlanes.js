@@ -13,15 +13,41 @@ export class InstancedPlanes {
         // Create shared geometry
         const geometry = new THREE.PlaneGeometry(this.size, this.size);
 
-        // Create shared material
+        // Create shared material with custom shader
         const textureLoader = new THREE.TextureLoader();
         const planeTexture = textureLoader.load('./src/assets/plane.png');
-        const material = new THREE.MeshPhongMaterial({
-            map: planeTexture,
+
+        const material = new THREE.ShaderMaterial({
+            uniforms: {
+                map: { value: planeTexture },
+                colorTint: { value: new THREE.Color(0xffffff) },
+                opacity: { value: 1.0 }
+            },
+            vertexShader: `
+                varying vec2 vUv;
+                void main() {
+                    vUv = uv;
+                    vec3 transformed = position;
+                    vec4 mvPosition = modelViewMatrix * instanceMatrix * vec4(transformed, 1.0);
+                    gl_Position = projectionMatrix * mvPosition;
+                }
+            `,
+            fragmentShader: `
+                uniform sampler2D map;
+                uniform vec3 colorTint;
+                uniform float opacity;
+                varying vec2 vUv;
+
+                void main() {
+                    vec4 texColor = texture2D(map, vUv);
+
+                    // Use only the alpha channel from texture, apply pure color tint
+                    gl_FragColor = vec4(colorTint, texColor.a * opacity);
+                }
+            `,
             side: THREE.DoubleSide,
             transparent: true,
-            alphaTest: 0.5, // Discard pixels with alpha < 0.5
-            depthWrite: false // Prevent z-fighting issues with transparency
+            depthWrite: false
         });
 
         // Create instanced mesh
@@ -69,6 +95,18 @@ export class InstancedPlanes {
     setGlobalScale(scale) {
         // We'll need to update this when instances are positioned
         this.globalScale = scale;
+    }
+
+    setColorTint(color) {
+        if (this.instancedMesh && this.instancedMesh.material.uniforms) {
+            this.instancedMesh.material.uniforms.colorTint.value.copy(color);
+        }
+    }
+
+    setOpacity(opacity) {
+        if (this.instancedMesh && this.instancedMesh.material.uniforms) {
+            this.instancedMesh.material.uniforms.opacity.value = opacity;
+        }
     }
 
     addToScene(scene) {
