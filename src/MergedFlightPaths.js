@@ -50,6 +50,9 @@ export class MergedFlightPaths {
   addFlightPath(flightIndex, curve, flightData) {
     if (flightIndex >= this.maxFlights) return;
 
+    // Skip expensive path calculations if curves are not visible
+    if (!this.curvesVisible) return;
+
     // Calculate offset in the buffer for this flight
     const pointOffset = flightIndex * (this.pointsPerPath + 1);
     const positionOffset = pointOffset * 3;

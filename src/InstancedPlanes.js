@@ -144,6 +144,9 @@ export class InstancedPlanes {
   setInstanceTransform(instanceId, position, rotation, scale = 1, planeType = null) {
     if (instanceId >= this.maxCount) return;
 
+    // Skip expensive operations if mesh is not visible
+    if (!this.instancedMesh || !this.instancedMesh.visible) return;
+
     const finalScale = scale * (this.globalScale || 1);
     const matrix = new THREE.Matrix4();
     matrix.compose(
@@ -172,6 +175,9 @@ export class InstancedPlanes {
 
   setActiveCount(count) {
     this.activeCount = Math.min(count, this.maxCount);
+
+    // Skip processing if mesh is not visible for performance
+    if (!this.instancedMesh || !this.instancedMesh.visible) return;
 
     // Hide instances beyond active count and randomize plane types for active ones
     for (let i = 0; i < this.maxCount; i++) {

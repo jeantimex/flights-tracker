@@ -276,8 +276,8 @@ function animate() {
     stars.update(delta);
   }
 
-  // Update flight animations with speed multiplier
-  if (flights) {
+  // Update flight animations with speed multiplier (only if planes are visible)
+  if (flights && guiControls.showPlanes) {
     const adjustedDelta = delta * guiControls.animationSpeed;
     flights.forEach((flight) => {
       flight.update(adjustedDelta);

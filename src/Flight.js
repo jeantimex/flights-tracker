@@ -164,6 +164,10 @@ export class Flight {
   updateInstancedPlane(position, tangent, normal) {
     if (!this.instancedPlanes || this.instanceId === undefined) return;
 
+    // Skip expensive matrix calculations if planes are not visible
+    const planeMesh = this.instancedPlanes.getMesh();
+    if (!planeMesh || !planeMesh.visible) return;
+
     // Lift the plane slightly above the flight path to avoid overlap with curve
     const planeOffset = 8; // Small offset to lift plane above curve
     const liftedPosition = position.clone().add(normal.clone().multiplyScalar(planeOffset));
