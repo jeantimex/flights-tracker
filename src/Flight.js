@@ -31,28 +31,71 @@ export class Flight {
   }
 
   createFlightPath() {
-    const lowAltitude = 50; // Low altitude for origin/destination
-    const flightAltitude = 200; // Flight altitude
+    const surfaceOffset = 5; // Very close to surface
+    const maxCruiseAltitude = 200; // Maximum cruise altitude
+    const minCruiseAltitude = 30; // Minimum cruise altitude for short flights
 
-    // Create start and end points just above surface
-    const startPoint = this.origin
+    // Create points on globe surface
+    const startSurface = this.origin
       .clone()
       .normalize()
-      .multiplyScalar(this.earth.getRadius() + lowAltitude);
-    const endPoint = this.destination
+      .multiplyScalar(this.earth.getRadius() + surfaceOffset);
+    const endSurface = this.destination
       .clone()
       .normalize()
-      .multiplyScalar(this.earth.getRadius() + lowAltitude);
+      .multiplyScalar(this.earth.getRadius() + surfaceOffset);
 
-    // Create mid point at flight altitude
-    const midPoint = startPoint
+    // Calculate distance between origin and destination
+    const distance = startSurface.distanceTo(endSurface);
+    const maxDistance = this.earth.getRadius() * Math.PI; // Half circumference
+
+    // Calculate dynamic cruise altitude based on distance
+    const distanceRatio = Math.min(distance / (maxDistance * 0.5), 1); // Normalize to 0-1
+    const cruiseAltitude = minCruiseAltitude + (maxCruiseAltitude - minCruiseAltitude) * distanceRatio;
+
+    // Create climb phase points (gradual ascent)
+    const climbPoint1 = startSurface
       .clone()
-      .lerp(endPoint, 0.5)
+      .lerp(endSurface, 0.2)
       .normalize()
-      .multiplyScalar(this.earth.getRadius() + flightAltitude);
+      .multiplyScalar(this.earth.getRadius() + cruiseAltitude * 0.4);
 
-    // Create the flight curve
-    this.curve = new THREE.CatmullRomCurve3([startPoint, midPoint, endPoint]);
+    const climbPoint2 = startSurface
+      .clone()
+      .lerp(endSurface, 0.35)
+      .normalize()
+      .multiplyScalar(this.earth.getRadius() + cruiseAltitude * 0.75);
+
+    // Create single cruise peak point (reduced height for smoother curve)
+    const cruisePeak = startSurface
+      .clone()
+      .lerp(endSurface, 0.5)
+      .normalize()
+      .multiplyScalar(this.earth.getRadius() + cruiseAltitude * 0.85);
+
+    // Create descent phase points (gradual descent)
+    const descentPoint1 = startSurface
+      .clone()
+      .lerp(endSurface, 0.65)
+      .normalize()
+      .multiplyScalar(this.earth.getRadius() + cruiseAltitude * 0.75);
+
+    const descentPoint2 = startSurface
+      .clone()
+      .lerp(endSurface, 0.8)
+      .normalize()
+      .multiplyScalar(this.earth.getRadius() + cruiseAltitude * 0.4);
+
+    // Create the parabolic flight curve: takeoff -> climb -> peak -> descent -> landing
+    this.curve = new THREE.CatmullRomCurve3([
+      startSurface,
+      climbPoint1,
+      climbPoint2,
+      cruisePeak,
+      descentPoint1,
+      descentPoint2,
+      endSurface
+    ]);
 
     // Add this flight path to the merged geometry
     if (this.mergedFlightPaths) {
