@@ -35,17 +35,35 @@ const guiControls = {
   showFlightPaths: true,
   showPlanes: true,
   realTimeSun: true,
-  simulatedTime: utcToPacificHours(getCurrentTimeHours()),
-  timeDisplay: utcToPacificTimeString(getCurrentTimeHours()),
+  simulatedTime: getCurrentTimeHours(),
+  timeDisplay: hoursToTimeString(getCurrentTimeHours()),
   nightBrightness: 1.5,
   dayBrightness: 2.0,
   colorizeePlanes: true,
 };
 
-// Helper function to get current time in decimal hours (0-24)
+// Helper function to get current Pacific time in decimal hours (0-24)
 function getCurrentTimeHours() {
   const now = new Date();
-  return now.getUTCHours() + now.getUTCMinutes() / 60;
+  const pacificTime = new Date(now.toLocaleString("en-US", {timeZone: "America/Los_Angeles"}));
+  return pacificTime.getHours() + pacificTime.getMinutes() / 60;
+}
+
+// Helper function to convert Pacific time to UTC for sun calculations
+function pacificToUtcHours(pacificHours) {
+  // Get timezone offset between Pacific and UTC
+  const now = new Date();
+  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+  const utcDate = new Date(utc);
+
+  // Create Pacific date for the same day
+  const pacificDate = new Date(now.toLocaleString("en-US", {timeZone: "America/Los_Angeles"}));
+
+  // Calculate offset in hours
+  const offsetHours = (utcDate.getTime() - pacificDate.getTime()) / (1000 * 60 * 60);
+
+  // Convert Pacific to UTC
+  return (pacificHours + offsetHours + 24) % 24;
 }
 
 // Helper function to convert decimal hours to HH:MM format
@@ -73,13 +91,6 @@ function utcToPacificHours(utcHours) {
   return pacificTime.getHours() + pacificTime.getMinutes() / 60;
 }
 
-// Helper function to convert Pacific decimal hours to UTC decimal hours
-function pacificToUtcHours(pacificHours) {
-  const pacificDate = new Date();
-  pacificDate.setHours(Math.floor(pacificHours), (pacificHours % 1) * 60, 0, 0);
-  const utcTime = new Date(pacificDate.toLocaleString("en-US", {timeZone: "UTC"}));
-  return utcTime.getHours() + utcTime.getMinutes() / 60;
-}
 
 // Helper function to convert HH:MM format to decimal hours
 function timeStringToHours(timeString) {
@@ -275,9 +286,8 @@ function setupGUI() {
         directionalLight.position.set(0, 1000, 1000);
       } else {
         // Update simulated time to current time when enabling real-time
-        const currentUtcTime = getCurrentTimeHours();
-        guiControls.simulatedTime = utcToPacificHours(currentUtcTime);
-        guiControls.timeDisplay = utcToPacificTimeString(currentUtcTime);
+        guiControls.simulatedTime = getCurrentTimeHours();
+        guiControls.timeDisplay = hoursToTimeString(guiControls.simulatedTime);
         // Refresh GUI controllers to show updated values
         timeDisplayController.updateDisplay();
         timeSliderController.updateDisplay();
@@ -393,7 +403,9 @@ function togglePlaneColorization(enabled) {
 
 function setInitialCameraPosition() {
   // Get current sun position to determine day/night terminator
-  const sunPos = getSunVector3(3000, getCurrentTimeHours());
+  const pacificTime = getCurrentTimeHours();
+  const utcTime = pacificToUtcHours(pacificTime);
+  const sunPos = getSunVector3(3000, (utcTime + 12) % 24);
 
   // Calculate camera position 180 degrees opposite to sun direction
   const cameraDistance = 6000;
@@ -412,16 +424,16 @@ function updateSunPosition() {
   if (directionalLight) {
     if (guiControls.realTimeSun) {
       // Update simulated time to current time for real-time mode
-      const currentUtcTime = getCurrentTimeHours();
-      guiControls.simulatedTime = utcToPacificHours(currentUtcTime);
-      guiControls.timeDisplay = utcToPacificTimeString(currentUtcTime);
+      guiControls.simulatedTime = getCurrentTimeHours();
+      guiControls.timeDisplay = hoursToTimeString(guiControls.simulatedTime);
 
-      const sunPosition = getSunVector3(earth ? earth.getRadius() : 3000, currentUtcTime);
+      const utcTime = pacificToUtcHours(guiControls.simulatedTime);
+      const sunPosition = getSunVector3(earth ? earth.getRadius() : 3000, (utcTime + 12) % 24);
       directionalLight.position.copy(sunPosition);
     } else if (guiControls.dayNightEffect) {
-      // Use simulated time for manual time control (convert Pacific back to UTC for sun calculation)
+      // Use simulated time for manual time control
       const utcTime = pacificToUtcHours(guiControls.simulatedTime);
-      const sunPosition = getSunVector3(earth ? earth.getRadius() : 3000, utcTime);
+      const sunPosition = getSunVector3(earth ? earth.getRadius() : 3000, (utcTime + 12) % 24);
       directionalLight.position.copy(sunPosition);
     }
   }
