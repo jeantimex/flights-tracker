@@ -1,17 +1,16 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { GUI } from "dat.gui";
 import Stats from "stats.js";
 import { Earth } from "./Earth.js";
 import { Flight } from "./Flight.js";
 import { InstancedPlanes } from "./InstancedPlanes.js";
 import { MergedFlightPaths } from "./MergedFlightPaths.js";
 import { Stars } from "./Stars.js";
+import { Controls } from "./Controls.js";
 import {
   getSunVector3,
   getCurrentPacificTimeHours,
   hoursToTimeString,
-  timeStringToHours,
   pacificToUtcHours
 } from "./Utils.js";
 import { flights as flightData } from "./Data.js";
@@ -22,7 +21,7 @@ let scene,
   controls,
   earth,
   flights,
-  gui,
+  guiControls,
   instancedPlanes,
   mergedFlightPaths,
   stats,
@@ -31,24 +30,10 @@ let scene,
   directionalLight;
 let clock = new THREE.Clock();
 
-// GUI controls object
-const guiControls = {
-  planeSize: 0.7,
-  animationSpeed: 0.3,
-  flightCount: 3500,
-  dayNightEffect: true,
-  atmosphereEffect: true,
-  showFlightPaths: true,
-  showPlanes: true,
-  realTimeSun: true,
-  simulatedTime: getCurrentPacificTimeHours(),
-  timeDisplay: hoursToTimeString(getCurrentPacificTimeHours()),
-  nightBrightness: 1.5,
-  dayBrightness: 2.0,
-  colorizeePlanes: true,
-};
-
 function init() {
+  // Setup GUI controls first
+  setupGUI();
+
   // Create scene
   scene = new THREE.Scene();
 
@@ -140,9 +125,6 @@ function init() {
 
   // Handle window resize
   window.addEventListener("resize", onWindowResize, false);
-
-  // Setup GUI controls
-  setupGUI();
 }
 
 function onWindowResize() {
@@ -152,146 +134,32 @@ function onWindowResize() {
 }
 
 function setupGUI() {
-  gui = new GUI();
+  const controls = new Controls();
 
-  // Plane controls
-  const planeFolder = gui.addFolder("Plane Controls");
-  planeFolder
-    .add(guiControls, "planeSize", 0.1, 3.0, 0.1)
-    .name("Size")
-    .onChange((value) => {
-      // Update instanced planes global scale
+  const callbacks = {
+    onPlaneSizeChange: (value) => {
       if (instancedPlanes) {
         instancedPlanes.setGlobalScale(value);
       }
-    });
+    },
+    onFlightCountChange: updateFlightCount,
+    onShowFlightPathsChange: toggleFlightPaths,
+    onShowPlanesChange: togglePlanes,
+    onColorizePlanesChange: togglePlaneColorization,
+    onDayNightEffectChange: toggleDayNightEffect,
+    onAtmosphereEffectChange: toggleAtmosphereEffect,
+    onResetSunPosition: () => {
+      directionalLight.position.set(0, 1000, 1000);
+    },
+    onDayBrightnessChange: updateLighting,
+    onNightBrightnessChange: updateLighting
+  };
 
-  planeFolder.open();
+  controls.setup(callbacks);
+  guiControls = controls.getControls();
 
-  // Animation controls
-  const animationFolder = gui.addFolder("Animation Controls");
-  animationFolder
-    .add(guiControls, "animationSpeed", 0.1, 3.0, 0.1)
-    .name("Speed")
-    .onChange((value) => {
-      // Speed multiplier is stored and used in the animate loop
-    });
-
-  animationFolder.open();
-
-  // Flight controls
-  const flightFolder = gui.addFolder("Flight Controls");
-  flightFolder
-    .add(guiControls, "flightCount", 1, flightData.length, 1)
-    .name("Count")
-    .onChange((value) => {
-      updateFlightCount(value);
-    });
-
-  flightFolder
-    .add(guiControls, "showFlightPaths")
-    .name("Show Paths")
-    .onChange((value) => {
-      toggleFlightPaths(value);
-    });
-
-  flightFolder
-    .add(guiControls, "showPlanes")
-    .name("Show Planes")
-    .onChange((value) => {
-      togglePlanes(value);
-    });
-
-  flightFolder
-    .add(guiControls, "colorizeePlanes")
-    .name("Colorize")
-    .onChange((value) => {
-      togglePlaneColorization(value);
-    });
-
-  flightFolder.open();
-
-  // Lighting controls
-  const lightingFolder = gui.addFolder("Lighting Controls");
-  lightingFolder
-    .add(guiControls, "dayNightEffect")
-    .name("Day/Night Effect")
-    .onChange((value) => {
-      toggleDayNightEffect(value);
-    });
-
-  lightingFolder
-    .add(guiControls, "atmosphereEffect")
-    .name("Atmosphere Effect")
-    .onChange((value) => {
-      toggleAtmosphereEffect(value);
-    });
-
-  const realTimeSunController = lightingFolder
-    .add(guiControls, "realTimeSun")
-    .name("Real-time Sun")
-    .onChange((value) => {
-      if (!value) {
-        // Reset to default position when disabled
-        directionalLight.position.set(0, 1000, 1000);
-      } else {
-        // Update simulated time to current time when enabling real-time
-        guiControls.simulatedTime = getCurrentPacificTimeHours();
-        guiControls.timeDisplay = hoursToTimeString(guiControls.simulatedTime);
-        // Refresh GUI controllers to show updated values
-        timeDisplayController.updateDisplay();
-        timeSliderController.updateDisplay();
-      }
-    });
-
-  const timeDisplayController = lightingFolder
-    .add(guiControls, "timeDisplay")
-    .name("Time (Pacific)")
-    .onChange((value) => {
-      // Validate time format
-      if (/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(value)) {
-        guiControls.simulatedTime = timeStringToHours(value);
-        timeSliderController.updateDisplay();
-        // Disable real-time sun when manually adjusting time
-        if (guiControls.realTimeSun) {
-          guiControls.realTimeSun = false;
-          realTimeSunController.updateDisplay();
-        }
-      }
-    });
-
-  const timeSliderController = lightingFolder
-    .add(guiControls, "simulatedTime", 0, 24, 0.1)
-    .name("Time Slider")
-    .onChange((value) => {
-      guiControls.timeDisplay = hoursToTimeString(value);
-      timeDisplayController.updateDisplay();
-      // Disable real-time sun when manually adjusting time
-      if (guiControls.realTimeSun) {
-        guiControls.realTimeSun = false;
-        realTimeSunController.updateDisplay();
-      }
-    });
-
-  lightingFolder.open();
-
-  // Brightness controls
-  const brightnessFolder = gui.addFolder("Brightness Controls");
-  brightnessFolder
-    .add(guiControls, "dayBrightness", 0.0, 3.0, 0.1)
-    .name("Day")
-    .onChange((value) => {
-      updateLighting();
-    });
-
-  brightnessFolder
-    .add(guiControls, "nightBrightness", 0.0, 2.0, 0.1)
-    .name("Night")
-    .onChange((value) => {
-      updateLighting();
-    });
-
-  brightnessFolder.open();
+  // Store controls instance globally for access in other functions
+  window.guiControlsInstance = controls;
 }
 
 function updateFlightCount(count) {
@@ -418,6 +286,11 @@ function animate() {
 
   // Update sun position every frame if real-time sun is enabled
   updateSunPosition();
+
+  // Update GUI time display if in real-time mode
+  if (window.guiControlsInstance) {
+    window.guiControlsInstance.updateTimeDisplay();
+  }
 
   renderer.render(scene, camera);
 
