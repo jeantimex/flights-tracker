@@ -7,6 +7,8 @@ export class InstancedPlanes {
     this.size = size;
     this.instancedMesh = null;
     this.activeCount = 0;
+    this.planeTextures = [];
+    this.planeTypes = new Float32Array(maxCount); // Store plane type for each instance
     this.createInstancedMesh();
   }
 
@@ -15,35 +17,53 @@ export class InstancedPlanes {
     // Create shared geometry
     const geometry = new THREE.PlaneGeometry(this.size, this.size);
 
+    // Load all 8 plane textures
+    for (let i = 1; i <= 8; i++) {
+      const texture = createSVGTexture(`./src/assets/plane${i}.svg`);
+      this.planeTextures.push(texture);
+    }
+
     // Create shared material with custom shader
     const textureLoader = new THREE.TextureLoader();
 
-    // Load SVG as texture by creating a canvas from it
-    const svgTexture = createSVGTexture('./src/assets/plane7.svg');
-
     const material = new THREE.ShaderMaterial({
       uniforms: {
-        map: { value: svgTexture },
+        planeTextures: { value: this.planeTextures },
         colorTint: { value: new THREE.Color(0xffffff) },
         opacity: { value: 1.0 },
       },
       vertexShader: `
+                attribute float planeType;
                 varying vec2 vUv;
+                varying float vPlaneType;
                 void main() {
                     vUv = vec2(uv.x, 1.0 - uv.y);
+                    vPlaneType = planeType;
                     vec3 transformed = position;
                     vec4 mvPosition = modelViewMatrix * instanceMatrix * vec4(transformed, 1.0);
                     gl_Position = projectionMatrix * mvPosition;
                 }
             `,
       fragmentShader: `
-                uniform sampler2D map;
+                uniform sampler2D planeTextures[8];
                 uniform vec3 colorTint;
                 uniform float opacity;
                 varying vec2 vUv;
+                varying float vPlaneType;
 
                 void main() {
-                    vec4 texColor = texture2D(map, vUv);
+                    int textureIndex = int(vPlaneType);
+                    vec4 texColor;
+
+                    // Sample from the correct texture based on plane type
+                    if (textureIndex == 0) texColor = texture2D(planeTextures[0], vUv);
+                    else if (textureIndex == 1) texColor = texture2D(planeTextures[1], vUv);
+                    else if (textureIndex == 2) texColor = texture2D(planeTextures[2], vUv);
+                    else if (textureIndex == 3) texColor = texture2D(planeTextures[3], vUv);
+                    else if (textureIndex == 4) texColor = texture2D(planeTextures[4], vUv);
+                    else if (textureIndex == 5) texColor = texture2D(planeTextures[5], vUv);
+                    else if (textureIndex == 6) texColor = texture2D(planeTextures[6], vUv);
+                    else texColor = texture2D(planeTextures[7], vUv);
 
                     // Use only the alpha channel from texture, apply pure color tint
                     gl_FragColor = vec4(colorTint, texColor.a * opacity);
@@ -61,18 +81,27 @@ export class InstancedPlanes {
       this.maxCount
     );
 
+    // Add plane type attribute for instanced rendering
+    geometry.setAttribute(
+      'planeType',
+      new THREE.InstancedBufferAttribute(this.planeTypes, 1)
+    );
+
     // Set initial transform for all instances (hidden by default)
     const matrix = new THREE.Matrix4();
     matrix.makeScale(0, 0, 0); // Hide initially
 
     for (let i = 0; i < this.maxCount; i++) {
       this.instancedMesh.setMatrixAt(i, matrix);
+      // Set random plane type for each instance
+      this.planeTypes[i] = Math.floor(Math.random() * 8);
     }
 
     this.instancedMesh.instanceMatrix.needsUpdate = true;
+    geometry.attributes.planeType.needsUpdate = true;
   }
 
-  setInstanceTransform(instanceId, position, rotation, scale = 1) {
+  setInstanceTransform(instanceId, position, rotation, scale = 1, planeType = null) {
     if (instanceId >= this.maxCount) return;
 
     const finalScale = scale * (this.globalScale || 1);
@@ -84,6 +113,12 @@ export class InstancedPlanes {
     );
     this.instancedMesh.setMatrixAt(instanceId, matrix);
     this.instancedMesh.instanceMatrix.needsUpdate = true;
+
+    // Set plane type if specified, otherwise use random
+    if (planeType !== null) {
+      this.planeTypes[instanceId] = Math.max(0, Math.min(7, planeType));
+      this.instancedMesh.geometry.attributes.planeType.needsUpdate = true;
+    }
   }
 
   hideInstance(instanceId) {
@@ -98,9 +133,27 @@ export class InstancedPlanes {
   setActiveCount(count) {
     this.activeCount = Math.min(count, this.maxCount);
 
-    // Hide instances beyond active count
-    for (let i = this.activeCount; i < this.maxCount; i++) {
-      this.hideInstance(i);
+    // Hide instances beyond active count and randomize plane types for active ones
+    for (let i = 0; i < this.maxCount; i++) {
+      if (i >= this.activeCount) {
+        this.hideInstance(i);
+      } else {
+        // Randomize plane type for active instances
+        this.planeTypes[i] = Math.floor(Math.random() * 8);
+      }
+    }
+
+    if (this.instancedMesh && this.instancedMesh.geometry.attributes.planeType) {
+      this.instancedMesh.geometry.attributes.planeType.needsUpdate = true;
+    }
+  }
+
+  setPlaneType(instanceId, planeType) {
+    if (instanceId >= this.maxCount) return;
+
+    this.planeTypes[instanceId] = Math.max(0, Math.min(7, planeType));
+    if (this.instancedMesh && this.instancedMesh.geometry.attributes.planeType) {
+      this.instancedMesh.geometry.attributes.planeType.needsUpdate = true;
     }
   }
 
