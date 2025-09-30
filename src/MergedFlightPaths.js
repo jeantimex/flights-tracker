@@ -15,6 +15,7 @@ export class MergedFlightPaths {
     this.maxFlights = 0;
     this.currentFlightCount = 0;
     this.pointsPerPath = 100; // Number of points per flight path
+    this.curvesVisible = true; // Control whether to render curves
   }
 
   initialize(maxFlights) {
@@ -105,11 +106,23 @@ export class MergedFlightPaths {
   setVisibleFlightCount(count) {
     this.currentFlightCount = Math.min(count, this.maxFlights);
 
-    // Calculate how many vertices to draw
-    const visiblePoints = this.currentFlightCount * (this.pointsPerPath + 1);
+    // Calculate how many vertices to draw (only if curves are visible)
+    const visiblePoints = this.curvesVisible ? this.currentFlightCount * (this.pointsPerPath + 1) : 0;
 
     // Update draw range
     this.geometry.setDrawRange(0, visiblePoints);
+  }
+
+  setCurvesVisible(visible) {
+    this.curvesVisible = visible;
+
+    // Update draw range immediately
+    const visiblePoints = this.curvesVisible ? this.currentFlightCount * (this.pointsPerPath + 1) : 0;
+    this.geometry.setDrawRange(0, visiblePoints);
+  }
+
+  getCurvesVisible() {
+    return this.curvesVisible;
   }
 
   hideFlightPath(flightIndex) {

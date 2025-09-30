@@ -31,6 +31,8 @@ const guiControls = {
   flightCount: 1000,
   dayNightEffect: true,
   atmosphereEffect: true,
+  showFlightPaths: true,
+  showPlanes: true,
 };
 
 function init() {
@@ -169,6 +171,20 @@ function setupGUI() {
       updateFlightCount(value);
     });
 
+  flightFolder
+    .add(guiControls, "showFlightPaths")
+    .name("Show Paths")
+    .onChange((value) => {
+      toggleFlightPaths(value);
+    });
+
+  flightFolder
+    .add(guiControls, "showPlanes")
+    .name("Show Planes")
+    .onChange((value) => {
+      togglePlanes(value);
+    });
+
   flightFolder.open();
 
   // Lighting controls
@@ -220,6 +236,18 @@ function toggleDayNightEffect(enabled) {
 function toggleAtmosphereEffect(enabled) {
   if (earth && earth.atmosphere) {
     earth.atmosphere.mesh.visible = enabled;
+  }
+}
+
+function toggleFlightPaths(enabled) {
+  if (mergedFlightPaths) {
+    mergedFlightPaths.setCurvesVisible(enabled);
+  }
+}
+
+function togglePlanes(enabled) {
+  if (instancedPlanes && instancedPlanes.getMesh()) {
+    instancedPlanes.getMesh().visible = enabled;
   }
 }
 
