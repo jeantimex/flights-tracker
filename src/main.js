@@ -155,7 +155,7 @@ function setupGUI() {
     onNightBrightnessChange: updateLighting
   };
 
-  controls.setup(callbacks);
+  controls.setup(callbacks, flightData.length);
   guiControls = controls.getControls();
 
   // Store controls instance globally for access in other functions

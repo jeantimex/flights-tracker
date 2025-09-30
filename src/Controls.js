@@ -29,14 +29,15 @@ export class Controls {
   /**
    * Initialize the GUI controls
    * @param {Object} callbacks - Object containing callback functions for different controls
+   * @param {number} maxFlightCount - Maximum number of flights available in the dataset
    */
-  setup(callbacks = {}) {
+  setup(callbacks = {}, maxFlightCount = 7000) {
     this.callbacks = callbacks;
     this.gui = new GUI();
 
     this.setupPlaneControls();
     this.setupAnimationControls();
-    this.setupFlightControls();
+    this.setupFlightControls(maxFlightCount);
     this.setupLightingControls();
     this.setupBrightnessControls();
   }
@@ -69,10 +70,10 @@ export class Controls {
     animationFolder.open();
   }
 
-  setupFlightControls() {
+  setupFlightControls(maxFlightCount = 7000) {
     const flightFolder = this.gui.addFolder("Flight Controls");
     flightFolder
-      .add(this.guiControls, "flightCount", 1, 7000, 1)
+      .add(this.guiControls, "flightCount", 1, maxFlightCount, 1)
       .name("Count")
       .onChange((value) => {
         if (this.callbacks.onFlightCountChange) {
