@@ -1,6 +1,6 @@
 # ✈️ Flight Tracker 3D
 
-A real-time 3D visualization of global flight paths with dynamic day/night cycles, built with Three.js. Watch thousands of flights move across a photorealistic Earth with customizable controls and performance optimizations.
+A 3D simulation of global flight paths with dynamic day/night cycles, built with Three.js. Watch thousands of flights move across a photorealistic Earth with customizable controls and performance optimizations.
 
 https://github.com/user-attachments/assets/a31ce178-a4ca-4692-94b4-429759189e8a
 
@@ -9,10 +9,10 @@ https://github.com/user-attachments/assets/a31ce178-a4ca-4692-94b4-429759189e8a
 ## 🌟 Features
 
 ### Core Visualization
-- **34,000+ Flight Paths**: Real flight data with dynamic curved trajectories
+- **34,000+ Flight Paths**: Flight data simulation with dynamic curved trajectories
 - **Instanced Aircraft**: Efficiently rendered 3D plane models with 8 different designs
 - **Photorealistic Earth**: High-resolution textures with atmosphere effects
-- **Day/Night Cycle**: Real-time sun positioning with dynamic lighting
+- **Day/Night Cycle**: Realistic sun positioning with dynamic lighting
 - **Starfield Background**: Animated star field for immersive space experience
 
 ### Interactive Controls
@@ -58,7 +58,7 @@ https://github.com/user-attachments/assets/a31ce178-a4ca-4692-94b4-429759189e8a
 - **Initial Animation**: Cinematic camera intro with 1-second delay
 
 ### Status Display
-- **FPS Counter**: Real-time performance monitoring (top left)
+- **FPS Counter**: Live performance monitoring (top left)
 - **Coordinates**: Live lat/lng of camera center point (bottom right)
 
 ## ⚡ Performance Optimizations
@@ -134,7 +134,7 @@ npm run build
 
 ## 📊 Performance Metrics
 
-- **Rendering**: 60 FPS with 34,000+ flights on modern hardware
+- **Rendering**: 60 FPS with 34,000+ flight simulation on modern hardware
 - **Memory**: ~200MB RAM usage for full dataset
 - **Draw Calls**: Minimized to ~10 calls per frame
 - **Optimization**: 90%+ performance improvement when elements hidden
