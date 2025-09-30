@@ -168,3 +168,85 @@ export function getSunVector3(radius = 3000, simulatedTimeHours = null) {
   const sunVector = latLngToVector3(sunPos.lat, sunPos.lng, radius * 3); // Place sun far from Earth
   return sunVector;
 }
+
+/**
+ * Time utility functions
+ */
+
+/**
+ * Get current Pacific time in decimal hours (0-24)
+ * @returns {number} Current Pacific time in decimal hours
+ */
+export function getCurrentPacificTimeHours() {
+  const now = new Date();
+  const pacificTime = new Date(now.toLocaleString("en-US", {timeZone: "America/Los_Angeles"}));
+  return pacificTime.getHours() + pacificTime.getMinutes() / 60;
+}
+
+/**
+ * Convert decimal hours to HH:MM format
+ * @param {number} hours - Decimal hours (0-24)
+ * @returns {string} Time in HH:MM format
+ */
+export function hoursToTimeString(hours) {
+  const h = Math.floor(hours);
+  const m = Math.floor((hours - h) * 60);
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+}
+
+/**
+ * Convert HH:MM format to decimal hours
+ * @param {string} timeString - Time in HH:MM format
+ * @returns {number} Decimal hours
+ */
+export function timeStringToHours(timeString) {
+  const [hours, minutes] = timeString.split(':').map(Number);
+  return hours + minutes / 60;
+}
+
+/**
+ * Convert UTC time to Pacific time display string
+ * @param {number} utcHours - UTC time in decimal hours
+ * @returns {string} Pacific time in HH:MM format
+ */
+export function utcToPacificTimeString(utcHours) {
+  const utcDate = new Date();
+  utcDate.setUTCHours(Math.floor(utcHours), (utcHours % 1) * 60, 0, 0);
+  const pacificTime = new Date(utcDate.toLocaleString("en-US", {timeZone: "America/Los_Angeles"}));
+  const hours = pacificTime.getHours();
+  const minutes = pacificTime.getMinutes();
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+}
+
+/**
+ * Convert UTC decimal hours to Pacific decimal hours
+ * @param {number} utcHours - UTC time in decimal hours
+ * @returns {number} Pacific time in decimal hours
+ */
+export function utcToPacificHours(utcHours) {
+  const utcDate = new Date();
+  utcDate.setUTCHours(Math.floor(utcHours), (utcHours % 1) * 60, 0, 0);
+  const pacificTime = new Date(utcDate.toLocaleString("en-US", {timeZone: "America/Los_Angeles"}));
+  return pacificTime.getHours() + pacificTime.getMinutes() / 60;
+}
+
+/**
+ * Convert Pacific time to UTC for sun calculations
+ * @param {number} pacificHours - Pacific time in decimal hours
+ * @returns {number} UTC time in decimal hours
+ */
+export function pacificToUtcHours(pacificHours) {
+  // Get timezone offset between Pacific and UTC
+  const now = new Date();
+  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+  const utcDate = new Date(utc);
+
+  // Create Pacific date for the same day
+  const pacificDate = new Date(now.toLocaleString("en-US", {timeZone: "America/Los_Angeles"}));
+
+  // Calculate offset in hours
+  const offsetHours = (utcDate.getTime() - pacificDate.getTime()) / (1000 * 60 * 60);
+
+  // Convert Pacific to UTC
+  return (pacificHours + offsetHours + 24) % 24;
+}

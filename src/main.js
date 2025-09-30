@@ -7,7 +7,13 @@ import { Flight } from "./Flight.js";
 import { InstancedPlanes } from "./InstancedPlanes.js";
 import { MergedFlightPaths } from "./MergedFlightPaths.js";
 import { Stars } from "./Stars.js";
-import { getSunVector3 } from "./Utils.js";
+import {
+  getSunVector3,
+  getCurrentPacificTimeHours,
+  hoursToTimeString,
+  timeStringToHours,
+  pacificToUtcHours
+} from "./Utils.js";
 import { flights as flightData } from "./Data.js";
 
 let scene,
@@ -35,68 +41,12 @@ const guiControls = {
   showFlightPaths: true,
   showPlanes: true,
   realTimeSun: true,
-  simulatedTime: getCurrentTimeHours(),
-  timeDisplay: hoursToTimeString(getCurrentTimeHours()),
+  simulatedTime: getCurrentPacificTimeHours(),
+  timeDisplay: hoursToTimeString(getCurrentPacificTimeHours()),
   nightBrightness: 1.5,
   dayBrightness: 2.0,
   colorizeePlanes: true,
 };
-
-// Helper function to get current Pacific time in decimal hours (0-24)
-function getCurrentTimeHours() {
-  const now = new Date();
-  const pacificTime = new Date(now.toLocaleString("en-US", {timeZone: "America/Los_Angeles"}));
-  return pacificTime.getHours() + pacificTime.getMinutes() / 60;
-}
-
-// Helper function to convert Pacific time to UTC for sun calculations
-function pacificToUtcHours(pacificHours) {
-  // Get timezone offset between Pacific and UTC
-  const now = new Date();
-  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-  const utcDate = new Date(utc);
-
-  // Create Pacific date for the same day
-  const pacificDate = new Date(now.toLocaleString("en-US", {timeZone: "America/Los_Angeles"}));
-
-  // Calculate offset in hours
-  const offsetHours = (utcDate.getTime() - pacificDate.getTime()) / (1000 * 60 * 60);
-
-  // Convert Pacific to UTC
-  return (pacificHours + offsetHours + 24) % 24;
-}
-
-// Helper function to convert decimal hours to HH:MM format
-function hoursToTimeString(hours) {
-  const h = Math.floor(hours);
-  const m = Math.floor((hours - h) * 60);
-  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-}
-
-// Helper function to convert UTC time to Pacific time display
-function utcToPacificTimeString(utcHours) {
-  const utcDate = new Date();
-  utcDate.setUTCHours(Math.floor(utcHours), (utcHours % 1) * 60, 0, 0);
-  const pacificTime = new Date(utcDate.toLocaleString("en-US", {timeZone: "America/Los_Angeles"}));
-  const hours = pacificTime.getHours();
-  const minutes = pacificTime.getMinutes();
-  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-}
-
-// Helper function to convert UTC decimal hours to Pacific decimal hours
-function utcToPacificHours(utcHours) {
-  const utcDate = new Date();
-  utcDate.setUTCHours(Math.floor(utcHours), (utcHours % 1) * 60, 0, 0);
-  const pacificTime = new Date(utcDate.toLocaleString("en-US", {timeZone: "America/Los_Angeles"}));
-  return pacificTime.getHours() + pacificTime.getMinutes() / 60;
-}
-
-
-// Helper function to convert HH:MM format to decimal hours
-function timeStringToHours(timeString) {
-  const [hours, minutes] = timeString.split(':').map(Number);
-  return hours + minutes / 60;
-}
 
 function init() {
   // Create scene
@@ -286,7 +236,7 @@ function setupGUI() {
         directionalLight.position.set(0, 1000, 1000);
       } else {
         // Update simulated time to current time when enabling real-time
-        guiControls.simulatedTime = getCurrentTimeHours();
+        guiControls.simulatedTime = getCurrentPacificTimeHours();
         guiControls.timeDisplay = hoursToTimeString(guiControls.simulatedTime);
         // Refresh GUI controllers to show updated values
         timeDisplayController.updateDisplay();
@@ -403,7 +353,7 @@ function togglePlaneColorization(enabled) {
 
 function setInitialCameraPosition() {
   // Get current sun position to determine day/night terminator
-  const pacificTime = getCurrentTimeHours();
+  const pacificTime = getCurrentPacificTimeHours();
   const utcTime = pacificToUtcHours(pacificTime);
   const sunPos = getSunVector3(3000, (utcTime + 12) % 24);
 
@@ -428,7 +378,7 @@ function updateSunPosition() {
   if (directionalLight) {
     if (guiControls.realTimeSun) {
       // Update simulated time to current time for real-time mode
-      guiControls.simulatedTime = getCurrentTimeHours();
+      guiControls.simulatedTime = getCurrentPacificTimeHours();
       guiControls.timeDisplay = hoursToTimeString(guiControls.simulatedTime);
 
       const utcTime = pacificToUtcHours(guiControls.simulatedTime);
