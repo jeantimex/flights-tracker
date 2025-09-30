@@ -39,6 +39,7 @@ const guiControls = {
   timeDisplay: hoursToTimeString(getCurrentTimeHours()),
   nightBrightness: 1.5,
   dayBrightness: 2.0,
+  colorizeePlanes: true,
 };
 
 // Helper function to get current time in decimal hours (0-24)
@@ -214,6 +215,13 @@ function setupGUI() {
       togglePlanes(value);
     });
 
+  flightFolder
+    .add(guiControls, "colorizeePlanes")
+    .name("Colorize")
+    .onChange((value) => {
+      togglePlaneColorization(value);
+    });
+
   flightFolder.open();
 
   // Lighting controls
@@ -347,6 +355,12 @@ function toggleFlightPaths(enabled) {
 function togglePlanes(enabled) {
   if (instancedPlanes && instancedPlanes.getMesh()) {
     instancedPlanes.getMesh().visible = enabled;
+  }
+}
+
+function togglePlaneColorization(enabled) {
+  if (instancedPlanes) {
+    instancedPlanes.setColorization(enabled);
   }
 }
 

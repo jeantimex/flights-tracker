@@ -41,6 +41,7 @@ export class InstancedPlanes {
         planeTextures: { value: this.planeTextures },
         planeColors: { value: this.planeColors },
         opacity: { value: 1.0 },
+        useColorization: { value: 1.0 }, // 1.0 = use colors, 0.0 = use white
       },
       vertexShader: `
                 attribute float planeType;
@@ -58,6 +59,7 @@ export class InstancedPlanes {
                 uniform sampler2D planeTextures[8];
                 uniform vec3 planeColors[8];
                 uniform float opacity;
+                uniform float useColorization;
                 varying vec2 vUv;
                 varying float vPlaneType;
 
@@ -100,8 +102,11 @@ export class InstancedPlanes {
                         planeColor = planeColors[7];
                     }
 
-                    // Use only the alpha channel from texture, apply plane-specific color
-                    gl_FragColor = vec4(planeColor, texColor.a * opacity);
+                    // Mix between plane-specific color and white based on useColorization
+                    vec3 finalColor = mix(vec3(1.0, 1.0, 1.0), planeColor, useColorization);
+
+                    // Use only the alpha channel from texture, apply final color
+                    gl_FragColor = vec4(finalColor, texColor.a * opacity);
                 }
             `,
       side: THREE.DoubleSide,
@@ -201,6 +206,12 @@ export class InstancedPlanes {
   setOpacity(opacity) {
     if (this.instancedMesh && this.instancedMesh.material.uniforms) {
       this.instancedMesh.material.uniforms.opacity.value = opacity;
+    }
+  }
+
+  setColorization(enabled) {
+    if (this.instancedMesh && this.instancedMesh.material.uniforms) {
+      this.instancedMesh.material.uniforms.useColorization.value = enabled ? 1.0 : 0.0;
     }
   }
 
