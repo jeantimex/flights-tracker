@@ -116,11 +116,12 @@ export function createSVGTexture(svgPath) {
 }
 
 /**
- * Calculate the sun's position based on current UTC time
+ * Calculate the sun's position based on current UTC time or simulated time
  * Returns the subsolar point (latitude/longitude where sun is directly overhead)
+ * @param {number} simulatedTimeHours - Optional simulated time in UTC hours (0-24)
  * @returns {Object} Object with lat, lng properties
  */
-export function getSunPosition() {
+export function getSunPosition(simulatedTimeHours = null) {
   const now = new Date();
   const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
   const utcDate = new Date(utc);
@@ -134,11 +135,16 @@ export function getSunPosition() {
   // Approximation: varies from -23.45° to +23.45° throughout the year
   const declination = 23.45 * Math.sin(degreesToRadians((360 / 365) * (dayOfYear - 81)));
 
-  // Solar longitude (changes 15° per hour, 0° at solar noon UTC)
-  const hours = utcDate.getUTCHours();
-  const minutes = utcDate.getUTCMinutes();
-  const seconds = utcDate.getUTCSeconds();
-  const timeDecimal = hours + minutes/60 + seconds/3600;
+  // Use simulated time if provided, otherwise use current time
+  let timeDecimal;
+  if (simulatedTimeHours !== null) {
+    timeDecimal = simulatedTimeHours;
+  } else {
+    const hours = utcDate.getUTCHours();
+    const minutes = utcDate.getUTCMinutes();
+    const seconds = utcDate.getUTCSeconds();
+    timeDecimal = hours + minutes/60 + seconds/3600;
+  }
 
   // Solar noon occurs at 12:00 UTC, so offset by 12 hours and convert to degrees
   const longitude = ((timeDecimal - 12) * 15) % 360;
@@ -154,10 +160,11 @@ export function getSunPosition() {
 /**
  * Convert sun position to 3D vector for directional light
  * @param {number} radius - Earth radius
+ * @param {number} simulatedTimeHours - Optional simulated time in UTC hours (0-24)
  * @returns {THREE.Vector3} Sun position vector
  */
-export function getSunVector3(radius = 3000) {
-  const sunPos = getSunPosition();
+export function getSunVector3(radius = 3000, simulatedTimeHours = null) {
+  const sunPos = getSunPosition(simulatedTimeHours);
   const sunVector = latLngToVector3(sunPos.lat, sunPos.lng, radius * 3); // Place sun far from Earth
   return sunVector;
 }

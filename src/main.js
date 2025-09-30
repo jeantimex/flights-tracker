@@ -35,7 +35,28 @@ const guiControls = {
   showFlightPaths: true,
   showPlanes: true,
   realTimeSun: true,
+  simulatedTime: getCurrentTimeHours(),
+  timeDisplay: hoursToTimeString(getCurrentTimeHours()),
 };
+
+// Helper function to get current time in decimal hours (0-24)
+function getCurrentTimeHours() {
+  const now = new Date();
+  return now.getUTCHours() + now.getUTCMinutes() / 60;
+}
+
+// Helper function to convert decimal hours to HH:MM format
+function hoursToTimeString(hours) {
+  const h = Math.floor(hours);
+  const m = Math.floor((hours - h) * 60);
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+}
+
+// Helper function to convert HH:MM format to decimal hours
+function timeStringToHours(timeString) {
+  const [hours, minutes] = timeString.split(':').map(Number);
+  return hours + minutes / 60;
+}
 
 function init() {
   // Create scene
@@ -208,13 +229,49 @@ function setupGUI() {
       toggleAtmosphereEffect(value);
     });
 
-  lightingFolder
+  const realTimeSunController = lightingFolder
     .add(guiControls, "realTimeSun")
     .name("Real-time Sun")
     .onChange((value) => {
       if (!value) {
         // Reset to default position when disabled
         directionalLight.position.set(0, 1000, 1000);
+      } else {
+        // Update simulated time to current time when enabling real-time
+        guiControls.simulatedTime = getCurrentTimeHours();
+        guiControls.timeDisplay = hoursToTimeString(guiControls.simulatedTime);
+        // Refresh GUI controllers to show updated values
+        timeDisplayController.updateDisplay();
+        timeSliderController.updateDisplay();
+      }
+    });
+
+  const timeDisplayController = lightingFolder
+    .add(guiControls, "timeDisplay")
+    .name("Time (UTC)")
+    .onChange((value) => {
+      // Validate time format
+      if (/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(value)) {
+        guiControls.simulatedTime = timeStringToHours(value);
+        timeSliderController.updateDisplay();
+        // Disable real-time sun when manually adjusting time
+        if (guiControls.realTimeSun) {
+          guiControls.realTimeSun = false;
+          realTimeSunController.updateDisplay();
+        }
+      }
+    });
+
+  const timeSliderController = lightingFolder
+    .add(guiControls, "simulatedTime", 0, 24, 0.1)
+    .name("Time Slider")
+    .onChange((value) => {
+      guiControls.timeDisplay = hoursToTimeString(value);
+      timeDisplayController.updateDisplay();
+      // Disable real-time sun when manually adjusting time
+      if (guiControls.realTimeSun) {
+        guiControls.realTimeSun = false;
+        realTimeSunController.updateDisplay();
       }
     });
 
@@ -267,9 +324,20 @@ function togglePlanes(enabled) {
 }
 
 function updateSunPosition() {
-  if (guiControls.realTimeSun && directionalLight) {
-    const sunPosition = getSunVector3(earth ? earth.getRadius() : 3000);
-    directionalLight.position.copy(sunPosition);
+  if (directionalLight) {
+    if (guiControls.realTimeSun) {
+      // Update simulated time to current time for real-time mode
+      const currentTime = getCurrentTimeHours();
+      guiControls.simulatedTime = currentTime;
+      guiControls.timeDisplay = hoursToTimeString(currentTime);
+
+      const sunPosition = getSunVector3(earth ? earth.getRadius() : 3000);
+      directionalLight.position.copy(sunPosition);
+    } else if (guiControls.dayNightEffect) {
+      // Use simulated time for manual time control
+      const sunPosition = getSunVector3(earth ? earth.getRadius() : 3000, guiControls.simulatedTime);
+      directionalLight.position.copy(sunPosition);
+    }
   }
 }
 
