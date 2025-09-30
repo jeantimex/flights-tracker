@@ -7,6 +7,7 @@ import { Flight } from "./Flight.js";
 import { InstancedPlanes } from "./InstancedPlanes.js";
 import { MergedFlightPaths } from "./MergedFlightPaths.js";
 import { Stars } from "./Stars.js";
+import { getSunVector3 } from "./Utils.js";
 import { flights as flightData } from "./Data.js";
 
 let scene,
@@ -33,6 +34,7 @@ const guiControls = {
   atmosphereEffect: true,
   showFlightPaths: true,
   showPlanes: true,
+  realTimeSun: true,
 };
 
 function init() {
@@ -67,7 +69,10 @@ function init() {
   scene.add(ambientLight);
 
   directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
-  directionalLight.position.set(0, 1000, 1000);
+
+  // Initialize sun position based on real time
+  updateSunPosition();
+
   scene.add(directionalLight);
 
   // Create and add stars (background starfield)
@@ -203,6 +208,16 @@ function setupGUI() {
       toggleAtmosphereEffect(value);
     });
 
+  lightingFolder
+    .add(guiControls, "realTimeSun")
+    .name("Real-time Sun")
+    .onChange((value) => {
+      if (!value) {
+        // Reset to default position when disabled
+        directionalLight.position.set(0, 1000, 1000);
+      }
+    });
+
   lightingFolder.open();
 }
 
@@ -251,6 +266,13 @@ function togglePlanes(enabled) {
   }
 }
 
+function updateSunPosition() {
+  if (guiControls.realTimeSun && directionalLight) {
+    const sunPosition = getSunVector3(earth ? earth.getRadius() : 3000);
+    directionalLight.position.copy(sunPosition);
+  }
+}
+
 function animate() {
   requestAnimationFrame(animate);
 
@@ -273,6 +295,9 @@ function animate() {
       flight.update(adjustedDelta);
     });
   }
+
+  // Update sun position every frame if real-time sun is enabled
+  updateSunPosition();
 
   renderer.render(scene, camera);
 

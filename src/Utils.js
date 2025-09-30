@@ -114,3 +114,50 @@ export function createSVGTexture(svgPath) {
   texture.flipY = false;
   return texture;
 }
+
+/**
+ * Calculate the sun's position based on current UTC time
+ * Returns the subsolar point (latitude/longitude where sun is directly overhead)
+ * @returns {Object} Object with lat, lng properties
+ */
+export function getSunPosition() {
+  const now = new Date();
+  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+  const utcDate = new Date(utc);
+
+  // Calculate day of year
+  const start = new Date(utcDate.getFullYear(), 0, 0);
+  const diff = utcDate - start;
+  const dayOfYear = Math.floor(diff / (1000 * 60 * 60 * 24));
+
+  // Solar declination (latitude where sun is directly overhead)
+  // Approximation: varies from -23.45° to +23.45° throughout the year
+  const declination = 23.45 * Math.sin(degreesToRadians((360 / 365) * (dayOfYear - 81)));
+
+  // Solar longitude (changes 15° per hour, 0° at solar noon UTC)
+  const hours = utcDate.getUTCHours();
+  const minutes = utcDate.getUTCMinutes();
+  const seconds = utcDate.getUTCSeconds();
+  const timeDecimal = hours + minutes/60 + seconds/3600;
+
+  // Solar noon occurs at 12:00 UTC, so offset by 12 hours and convert to degrees
+  const longitude = ((timeDecimal - 12) * 15) % 360;
+  // Normalize to -180 to +180 range
+  const normalizedLongitude = longitude > 180 ? longitude - 360 : longitude;
+
+  return {
+    lat: declination,
+    lng: normalizedLongitude
+  };
+}
+
+/**
+ * Convert sun position to 3D vector for directional light
+ * @param {number} radius - Earth radius
+ * @returns {THREE.Vector3} Sun position vector
+ */
+export function getSunVector3(radius = 3000) {
+  const sunPos = getSunPosition();
+  const sunVector = latLngToVector3(sunPos.lat, sunPos.lng, radius * 3); // Place sun far from Earth
+  return sunVector;
+}
