@@ -407,14 +407,18 @@ function setInitialCameraPosition() {
   const utcTime = pacificToUtcHours(pacificTime);
   const sunPos = getSunVector3(3000, (utcTime + 12) % 24);
 
-  // Calculate camera position 180 degrees opposite to sun direction
+  // Position camera at the sun position, then pan 90 degrees to the right
   const cameraDistance = 6000;
-
-  // Normalize sun direction from origin
   const sunDirection = sunPos.clone().normalize();
 
-  // Position camera 180 degrees opposite to sun (directly opposite side)
-  const cameraPosition = sunDirection.clone().negate().multiplyScalar(cameraDistance);
+  // Rotate the sun direction 70 degrees to the right (around Y-axis)
+  const angle = (70 * Math.PI) / 180; // Convert 70 degrees to radians
+  const rotatedDirection = new THREE.Vector3();
+  rotatedDirection.x = sunDirection.x * Math.cos(angle) + sunDirection.z * Math.sin(angle);
+  rotatedDirection.y = sunDirection.y;
+  rotatedDirection.z = -sunDirection.x * Math.sin(angle) + sunDirection.z * Math.cos(angle);
+
+  const cameraPosition = rotatedDirection.multiplyScalar(cameraDistance);
 
   camera.position.copy(cameraPosition);
   camera.lookAt(0, 0, 0); // Look at Earth center
