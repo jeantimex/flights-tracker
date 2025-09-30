@@ -27,9 +27,9 @@ let clock = new THREE.Clock();
 
 // GUI controls object
 const guiControls = {
-  planeSize: 0.8,
-  animationSpeed: 0.5,
-  flightCount: 1000,
+  planeSize: 0.7,
+  animationSpeed: 0.3,
+  flightCount: 3500,
   dayNightEffect: true,
   atmosphereEffect: true,
   showFlightPaths: true,
@@ -71,7 +71,8 @@ function init() {
     0.1,
     20000
   );
-  camera.position.set(0, 0, 5000);
+  // Position camera to show day/night terminator line
+  setInitialCameraPosition();
 
   // Create renderer
   renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -347,6 +348,23 @@ function togglePlanes(enabled) {
   if (instancedPlanes && instancedPlanes.getMesh()) {
     instancedPlanes.getMesh().visible = enabled;
   }
+}
+
+function setInitialCameraPosition() {
+  // Get current sun position to determine day/night terminator
+  const sunPos = getSunVector3(3000, getCurrentTimeHours());
+
+  // Calculate camera position 180 degrees opposite to sun direction
+  const cameraDistance = 6000;
+
+  // Normalize sun direction from origin
+  const sunDirection = sunPos.clone().normalize();
+
+  // Position camera 180 degrees opposite to sun (directly opposite side)
+  const cameraPosition = sunDirection.clone().negate().multiplyScalar(cameraDistance);
+
+  camera.position.copy(cameraPosition);
+  camera.lookAt(0, 0, 0); // Look at Earth center
 }
 
 function updateSunPosition() {
