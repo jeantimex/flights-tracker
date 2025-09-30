@@ -29,7 +29,7 @@ export class InstancedPlanes {
 
     // Load all 8 plane textures
     for (let i = 1; i <= 8; i++) {
-      const texture = createSVGTexture(`./src/assets/plane${i}.svg`);
+      const texture = createSVGTexture(`${import.meta.env.BASE_URL}plane${i}.svg`);
       this.planeTextures.push(texture);
     }
 

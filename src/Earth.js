@@ -15,11 +15,11 @@ export class Earth {
 
     // Load the world topology texture
     const textureLoader = new THREE.TextureLoader();
-    const worldTexture = textureLoader.load("./src/assets/world.topo.jpg");
+    const worldTexture = textureLoader.load(`${import.meta.env.BASE_URL}world.topo.jpg`);
 
     // Configure texture properties for better quality
     worldTexture.wrapS = THREE.RepeatWrapping;
-    worldTexture.wrapT = THREE.ClampToEdgeWrap;
+    worldTexture.wrapT = THREE.ClampToEdgeWrapping;
     worldTexture.minFilter = THREE.LinearFilter;
     worldTexture.magFilter = THREE.LinearFilter;
     worldTexture.flipY = true; // Flip texture vertically to correct orientation
