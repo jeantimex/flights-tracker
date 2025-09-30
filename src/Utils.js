@@ -288,3 +288,31 @@ export function animateCameraToPosition(camera, startPosition, targetPosition, d
     animateCamera();
   }
 }
+
+/**
+ * Convert 3D Vector3 position back to latitude/longitude coordinates
+ * @param {THREE.Vector3} position - 3D position vector
+ * @param {number} radius - Sphere radius used for the conversion
+ * @returns {Object} Object with lat, lng properties
+ */
+export function vector3ToLatLng(position, radius) {
+  // Reverse the coordinate transformation applied in latLngToVector3
+  // Original transformation: rotatedX = z, rotatedY = y, rotatedZ = -x
+  // So to reverse: x = -rotatedZ, y = rotatedY, z = rotatedX
+  const x = -position.z;
+  const y = position.y;
+  const z = position.x;
+
+  // Normalize the vector to the sphere surface
+  const normalizedPosition = new THREE.Vector3(x, y, z).normalize().multiplyScalar(radius);
+
+  // Convert cartesian back to spherical coordinates
+  const phi = Math.acos(clamp(normalizedPosition.y / radius, -1, 1)); // Latitude angle
+  const theta = Math.atan2(normalizedPosition.z, normalizedPosition.x); // Longitude angle
+
+  // Convert to lat/lng degrees
+  const lat = 90 - (phi * 180) / Math.PI; // 0 at north pole, 180 at south pole -> -90 to +90
+  const lng = ((theta * 180) / Math.PI + 180) % 360 - 180; // -180 to +180
+
+  return { lat, lng };
+}
