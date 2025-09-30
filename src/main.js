@@ -35,8 +35,8 @@ const guiControls = {
   showFlightPaths: true,
   showPlanes: true,
   realTimeSun: true,
-  simulatedTime: getCurrentTimeHours(),
-  timeDisplay: hoursToTimeString(getCurrentTimeHours()),
+  simulatedTime: utcToPacificHours(getCurrentTimeHours()),
+  timeDisplay: utcToPacificTimeString(getCurrentTimeHours()),
   nightBrightness: 1.5,
   dayBrightness: 2.0,
   colorizeePlanes: true,
@@ -53,6 +53,32 @@ function hoursToTimeString(hours) {
   const h = Math.floor(hours);
   const m = Math.floor((hours - h) * 60);
   return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+}
+
+// Helper function to convert UTC time to Pacific time display
+function utcToPacificTimeString(utcHours) {
+  const utcDate = new Date();
+  utcDate.setUTCHours(Math.floor(utcHours), (utcHours % 1) * 60, 0, 0);
+  const pacificTime = new Date(utcDate.toLocaleString("en-US", {timeZone: "America/Los_Angeles"}));
+  const hours = pacificTime.getHours();
+  const minutes = pacificTime.getMinutes();
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+}
+
+// Helper function to convert UTC decimal hours to Pacific decimal hours
+function utcToPacificHours(utcHours) {
+  const utcDate = new Date();
+  utcDate.setUTCHours(Math.floor(utcHours), (utcHours % 1) * 60, 0, 0);
+  const pacificTime = new Date(utcDate.toLocaleString("en-US", {timeZone: "America/Los_Angeles"}));
+  return pacificTime.getHours() + pacificTime.getMinutes() / 60;
+}
+
+// Helper function to convert Pacific decimal hours to UTC decimal hours
+function pacificToUtcHours(pacificHours) {
+  const pacificDate = new Date();
+  pacificDate.setHours(Math.floor(pacificHours), (pacificHours % 1) * 60, 0, 0);
+  const utcTime = new Date(pacificDate.toLocaleString("en-US", {timeZone: "UTC"}));
+  return utcTime.getHours() + utcTime.getMinutes() / 60;
 }
 
 // Helper function to convert HH:MM format to decimal hours
@@ -249,8 +275,9 @@ function setupGUI() {
         directionalLight.position.set(0, 1000, 1000);
       } else {
         // Update simulated time to current time when enabling real-time
-        guiControls.simulatedTime = getCurrentTimeHours();
-        guiControls.timeDisplay = hoursToTimeString(guiControls.simulatedTime);
+        const currentUtcTime = getCurrentTimeHours();
+        guiControls.simulatedTime = utcToPacificHours(currentUtcTime);
+        guiControls.timeDisplay = utcToPacificTimeString(currentUtcTime);
         // Refresh GUI controllers to show updated values
         timeDisplayController.updateDisplay();
         timeSliderController.updateDisplay();
@@ -259,7 +286,7 @@ function setupGUI() {
 
   const timeDisplayController = lightingFolder
     .add(guiControls, "timeDisplay")
-    .name("Time (UTC)")
+    .name("Time (Pacific)")
     .onChange((value) => {
       // Validate time format
       if (/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(value)) {
@@ -385,15 +412,16 @@ function updateSunPosition() {
   if (directionalLight) {
     if (guiControls.realTimeSun) {
       // Update simulated time to current time for real-time mode
-      const currentTime = getCurrentTimeHours();
-      guiControls.simulatedTime = currentTime;
-      guiControls.timeDisplay = hoursToTimeString(currentTime);
+      const currentUtcTime = getCurrentTimeHours();
+      guiControls.simulatedTime = utcToPacificHours(currentUtcTime);
+      guiControls.timeDisplay = utcToPacificTimeString(currentUtcTime);
 
-      const sunPosition = getSunVector3(earth ? earth.getRadius() : 3000);
+      const sunPosition = getSunVector3(earth ? earth.getRadius() : 3000, currentUtcTime);
       directionalLight.position.copy(sunPosition);
     } else if (guiControls.dayNightEffect) {
-      // Use simulated time for manual time control
-      const sunPosition = getSunVector3(earth ? earth.getRadius() : 3000, guiControls.simulatedTime);
+      // Use simulated time for manual time control (convert Pacific back to UTC for sun calculation)
+      const utcTime = pacificToUtcHours(guiControls.simulatedTime);
+      const sunPosition = getSunVector3(earth ? earth.getRadius() : 3000, utcTime);
       directionalLight.position.copy(sunPosition);
     }
   }
