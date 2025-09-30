@@ -33,7 +33,7 @@ export class Flight {
   createFlightPath() {
     const surfaceOffset = 5; // Very close to surface
     const maxCruiseAltitude = 200; // Maximum cruise altitude
-    const minCruiseAltitude = 30; // Minimum cruise altitude for short flights
+    const minCruiseAltitude = 15; // Minimum cruise altitude for very short flights
 
     // Create points on globe surface
     const startSurface = this.origin
@@ -49,9 +49,9 @@ export class Flight {
     const distance = startSurface.distanceTo(endSurface);
     const maxDistance = this.earth.getRadius() * Math.PI; // Half circumference
 
-    // Calculate dynamic cruise altitude based on distance
-    const distanceRatio = Math.min(distance / (maxDistance * 0.5), 1); // Normalize to 0-1
-    const cruiseAltitude = minCruiseAltitude + (maxCruiseAltitude - minCruiseAltitude) * distanceRatio;
+    // Calculate dynamic cruise altitude based on distance with more aggressive scaling
+    const distanceRatio = Math.min(distance / (maxDistance * 0.3), 1); // More aggressive scaling
+    const cruiseAltitude = minCruiseAltitude + (maxCruiseAltitude - minCruiseAltitude) * Math.pow(distanceRatio, 0.7);
 
     // Create climb phase points (gradual ascent)
     const climbPoint1 = startSurface
@@ -164,6 +164,10 @@ export class Flight {
   updateInstancedPlane(position, tangent, normal) {
     if (!this.instancedPlanes || this.instanceId === undefined) return;
 
+    // Lift the plane slightly above the flight path to avoid overlap with curve
+    const planeOffset = 8; // Small offset to lift plane above curve
+    const liftedPosition = position.clone().add(normal.clone().multiplyScalar(planeOffset));
+
     // Calculate the up vector perpendicular to both normal and tangent
     const up = new THREE.Vector3().crossVectors(normal, tangent).normalize();
 
@@ -180,10 +184,10 @@ export class Flight {
     );
     quaternion.multiply(additionalRotation);
 
-    // Update the instanced plane
+    // Update the instanced plane with lifted position
     this.instancedPlanes.setInstanceTransform(
       this.instanceId,
-      position,
+      liftedPosition,
       quaternion,
       this.instancedPlanes.globalScale || 1
     );
