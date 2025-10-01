@@ -173,8 +173,8 @@ export class Flight {
     const planeOffset = 8; // Small offset to lift plane above curve
     const liftedPosition = position.clone().add(normal.clone().multiplyScalar(planeOffset));
 
-    // Check if this is a particle renderer
-    if (this.planeRenderer.constructor.name === 'ParticlePlanes') {
+    // Check if this is a particle renderer using reliable property check
+    if (this.planeRenderer.isParticleRenderer) {
       // For particles, set position and velocity
       const velocity = tangent.clone().multiplyScalar(50); // Particle movement speed
 

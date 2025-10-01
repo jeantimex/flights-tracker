@@ -7,6 +7,7 @@ export class ParticlePlanes {
     this.activeCount = 0;
     this.globalScale = 1.0;
     this.particleSystem = null;
+    this.isParticleRenderer = true; // Add identifier for reliable type checking
     this.flightPositions = new Float32Array(maxCount * 3);
     this.flightVelocities = new Float32Array(maxCount * 3);
     this.flightAges = new Float32Array(maxCount);

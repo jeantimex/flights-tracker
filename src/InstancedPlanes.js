@@ -8,6 +8,7 @@ export class InstancedPlanes {
     this.instancedMesh = null;
     this.activeCount = 0;
     this.planeTextures = [];
+    this.isParticleRenderer = false; // Add identifier for reliable type checking
     this.planeTypes = new Float32Array(maxCount); // Store plane type for each instance
     this.planeColors = [
       new THREE.Color(0xE8F5E9), // Green

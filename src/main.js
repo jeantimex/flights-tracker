@@ -288,7 +288,7 @@ function setupGUI() {
     onPlaneSizeChange: (value) => {
       if (currentPlaneRenderer) {
         // Apply 0.5 scaling factor for instanced planes to make them smaller
-        const scaleFactor = currentPlaneRenderer.constructor.name === 'InstancedPlanes' ? 0.5 : 1.0;
+        const scaleFactor = currentPlaneRenderer.isParticleRenderer ? 1.0 : 0.5;
         currentPlaneRenderer.setGlobalScale(value * scaleFactor);
       }
     },
@@ -345,7 +345,7 @@ function switchPlaneRenderer(renderType) {
   if (currentPlaneRenderer) {
     currentPlaneRenderer.setActiveCount(guiControls.flightCount);
     // Apply appropriate scaling factor based on renderer type
-    const scaleFactor = currentPlaneRenderer.constructor.name === 'InstancedPlanes' ? 0.5 : 1.0;
+    const scaleFactor = currentPlaneRenderer.isParticleRenderer ? 1.0 : 0.5;
     currentPlaneRenderer.setGlobalScale(guiControls.planeSize * scaleFactor);
     currentPlaneRenderer.setColorization(guiControls.colorizeePlanes);
   }
