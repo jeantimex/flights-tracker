@@ -3,10 +3,11 @@ import { Atmosphere } from "./Atmosphere.js";
 import { latLngToVector3, getRandomPointOnSphere } from "./Utils.js";
 
 export class Earth {
-  constructor(radius = 3000) {
+  constructor(radius = 3000, onTextureLoaded = null) {
     this.radius = radius;
     this.mesh = null;
     this.atmosphere = new Atmosphere(radius);
+    this.onTextureLoaded = onTextureLoaded;
     this.createEarth();
   }
 
@@ -15,7 +16,24 @@ export class Earth {
 
     // Load the world topology texture
     const textureLoader = new THREE.TextureLoader();
-    const worldTexture = textureLoader.load(`${import.meta.env.BASE_URL}world.topo.jpg`);
+    const worldTexture = textureLoader.load(
+      `${import.meta.env.BASE_URL}world.topo.jpg`,
+      // onLoad callback
+      () => {
+        if (this.onTextureLoaded) {
+          this.onTextureLoaded();
+        }
+      },
+      // onProgress callback
+      undefined,
+      // onError callback
+      (error) => {
+        console.error('Error loading Earth texture:', error);
+        if (this.onTextureLoaded) {
+          this.onTextureLoaded();
+        }
+      }
+    );
 
     // Configure texture properties for better quality
     worldTexture.wrapS = THREE.RepeatWrapping;

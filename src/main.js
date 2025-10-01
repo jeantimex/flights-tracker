@@ -31,7 +31,67 @@ let scene,
   directionalLight;
 let clock = new THREE.Clock();
 
+function createLoadingScreen() {
+  const loadingDiv = document.createElement('div');
+  loadingDiv.id = 'loading-screen';
+  loadingDiv.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #000000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+  `;
+
+  const spinner = document.createElement('div');
+  spinner.style.cssText = `
+    width: 50px;
+    height: 50px;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    border-top: 3px solid #58a6ff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  `;
+
+  // Add CSS animation for spinner
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  `;
+  document.head.appendChild(style);
+
+  loadingDiv.appendChild(spinner);
+  document.body.appendChild(loadingDiv);
+}
+
+function checkReadyToRemoveLoadingScreen() {
+  if (window.earthTextureLoaded && window.minTimeElapsed) {
+    setInitialCameraPosition();
+  }
+}
+
+function removeLoadingScreen() {
+  const loadingScreen = document.getElementById('loading-screen');
+  if (loadingScreen) {
+    loadingScreen.style.opacity = '0';
+    loadingScreen.style.transition = 'opacity 0.5s ease-out';
+    setTimeout(() => {
+      loadingScreen.remove();
+    }, 500);
+  }
+}
+
 function init() {
+  // Show loading screen first
+  createLoadingScreen();
+
   // Setup GUI controls first
   setupGUI();
 
@@ -45,8 +105,15 @@ function init() {
     0.1,
     20000
   );
-  // Position camera to show day/night terminator line
-  setInitialCameraPosition();
+  // Initialize loading state
+  window.earthTextureLoaded = false;
+  window.minTimeElapsed = false;
+
+  // Position camera to show day/night terminator line with delay to show loading screen
+  setTimeout(() => {
+    window.minTimeElapsed = true;
+    checkReadyToRemoveLoadingScreen();
+  }, 2000); // Show loading screen for at least 2 seconds
 
   // Create renderer
   renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -80,8 +147,11 @@ function init() {
   stars = new Stars(5000, 10000, 20000);
   stars.addToScene(scene);
 
-  // Create and add Earth
-  earth = new Earth(3000);
+  // Create and add Earth with texture loading callback
+  earth = new Earth(3000, () => {
+    window.earthTextureLoaded = true;
+    checkReadyToRemoveLoadingScreen();
+  });
   earth.addToScene(scene);
 
   // Create instanced planes manager
@@ -300,6 +370,9 @@ function setInitialCameraPosition() {
 
   // Animate camera to target position with 1 second delay
   animateCameraToPosition(camera, startPosition, targetPosition, 2000, 1000);
+
+  // Remove loading screen after camera positioning starts
+  removeLoadingScreen();
 }
 
 function updateSunPosition() {
