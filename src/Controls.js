@@ -19,7 +19,7 @@ export class Controls {
       realTimeSun: true,
       simulatedTime: getCurrentUtcTimeHours(),
       timeDisplay: hoursToTimeString(getCurrentUtcTimeHours()),
-      nightBrightness: 1.5,
+      nightBrightness: 0.8,
       dayBrightness: 2.0,
       colorizeePlanes: true,
       planeRenderType: "instanced", // "instanced" or "particles"
