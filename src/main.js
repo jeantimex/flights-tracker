@@ -125,7 +125,7 @@ function init() {
   controls.enableDamping = true;
   controls.dampingFactor = 0.05;
   controls.screenSpacePanning = false;
-  controls.minDistance = 100;
+  controls.minDistance = 3200; // Prevent zooming into Earth surface (Earth radius is 3000)
   controls.maxDistance = 20000;
 
   // Handle window resize
