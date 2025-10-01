@@ -109,9 +109,9 @@ export class ParticlePlanes {
           // Calculate size based on distance from camera and global scale
           vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
           float distance = length(mvPosition.xyz);
-          gl_PointSize = (50.0 * globalScale) / distance;
-          gl_PointSize = max(gl_PointSize, 2.0);
-          gl_PointSize = min(gl_PointSize, 20.0);
+          gl_PointSize = (120.0 * globalScale) / distance;
+          gl_PointSize = max(gl_PointSize, 1.0 * globalScale);
+          gl_PointSize = min(gl_PointSize, 50.0 * globalScale);
         }
       `,
       fragmentShader: `

@@ -157,10 +157,11 @@ function init() {
   });
   earth.addToScene(scene);
 
-  // Create instanced planes manager
-  instancedPlanes = new InstancedPlanes(flightData.length, 100);
+  // Create instanced planes manager with much smaller base size (10x smaller than original)
+  instancedPlanes = new InstancedPlanes(flightData.length, 10);
   instancedPlanes.addToScene(scene);
-  instancedPlanes.setGlobalScale(guiControls.planeSize);
+  // Scale by 0.5 so that size=1 gives 2x smaller than the new base size
+  instancedPlanes.setGlobalScale(guiControls.planeSize * 0.5);
 
   // Create particle planes manager
   particlePlanes = new ParticlePlanes(flightData.length, earth.getRadius());
@@ -286,7 +287,9 @@ function setupGUI() {
   const callbacks = {
     onPlaneSizeChange: (value) => {
       if (currentPlaneRenderer) {
-        currentPlaneRenderer.setGlobalScale(value);
+        // Apply 0.5 scaling factor for instanced planes to make them smaller
+        const scaleFactor = currentPlaneRenderer.constructor.name === 'InstancedPlanes' ? 0.5 : 1.0;
+        currentPlaneRenderer.setGlobalScale(value * scaleFactor);
       }
     },
     onPlaneRenderTypeChange: switchPlaneRenderer,
@@ -341,7 +344,9 @@ function switchPlaneRenderer(renderType) {
   // Apply current settings to new renderer
   if (currentPlaneRenderer) {
     currentPlaneRenderer.setActiveCount(guiControls.flightCount);
-    currentPlaneRenderer.setGlobalScale(guiControls.planeSize);
+    // Apply appropriate scaling factor based on renderer type
+    const scaleFactor = currentPlaneRenderer.constructor.name === 'InstancedPlanes' ? 0.5 : 1.0;
+    currentPlaneRenderer.setGlobalScale(guiControls.planeSize * scaleFactor);
     currentPlaneRenderer.setColorization(guiControls.colorizeePlanes);
   }
 }

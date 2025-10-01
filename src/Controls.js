@@ -9,7 +9,7 @@ export class Controls {
     this.gui = null;
     this.controllers = {};
     this.guiControls = {
-      planeSize: 0.7,
+      planeSize: 5.0,
       animationSpeed: 0.3,
       flightCount: 3500,
       dayNightEffect: true,
@@ -56,11 +56,20 @@ export class Controls {
       });
 
     planeFolder
-      .add(this.guiControls, "planeSize", 0.1, 3.0, 0.1)
+      .add(this.guiControls, "planeSize", 1.0, 10.0, 0.1)
       .name("Size")
       .onChange((value) => {
         if (this.callbacks.onPlaneSizeChange) {
           this.callbacks.onPlaneSizeChange(value);
+        }
+      });
+
+    planeFolder
+      .add(this.guiControls, "colorizeePlanes")
+      .name("Colorize")
+      .onChange((value) => {
+        if (this.callbacks.onColorizePlanesChange) {
+          this.callbacks.onColorizePlanesChange(value);
         }
       });
 
@@ -107,15 +116,6 @@ export class Controls {
       .onChange((value) => {
         if (this.callbacks.onShowPlanesChange) {
           this.callbacks.onShowPlanesChange(value);
-        }
-      });
-
-    flightFolder
-      .add(this.guiControls, "colorizeePlanes")
-      .name("Colorize")
-      .onChange((value) => {
-        if (this.callbacks.onColorizePlanesChange) {
-          this.callbacks.onColorizePlanesChange(value);
         }
       });
 
