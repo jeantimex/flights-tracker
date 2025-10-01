@@ -202,12 +202,13 @@ export class Flight {
       );
       quaternion.multiply(additionalRotation);
 
-      // Update the instanced plane with lifted position
+      // Update the instanced plane with lifted position (without triggering update)
       this.planeRenderer.setInstanceTransform(
         this.instanceId,
         liftedPosition,
         quaternion,
-        this.planeRenderer.globalScale || 1
+        this.planeRenderer.globalScale || 1,
+        false // Skip immediate update for batching
       );
     }
   }

@@ -16,6 +16,8 @@ export class MergedFlightPaths {
     this.currentFlightCount = 0;
     this.pointsPerPath = 100; // Number of points per flight path
     this.curvesVisible = true; // Control whether to render curves
+    this.needsPositionUpdate = false;
+    this.needsColorUpdate = false;
   }
 
   initialize(maxFlights) {
@@ -101,9 +103,9 @@ export class MergedFlightPaths {
       this.colors[breakColorIndex + 2] = baseColor.b;
     }
 
-    // Mark attributes for update
-    this.geometry.attributes.position.needsUpdate = true;
-    this.geometry.attributes.color.needsUpdate = true;
+    // Mark attributes for update (batch these updates)
+    this.needsPositionUpdate = true;
+    this.needsColorUpdate = true;
   }
 
   setVisibleFlightCount(count) {
@@ -164,5 +166,17 @@ export class MergedFlightPaths {
 
   getMesh() {
     return this.mesh;
+  }
+
+  // Apply batched updates to geometry attributes
+  applyBatchedUpdates() {
+    if (this.needsPositionUpdate) {
+      this.geometry.attributes.position.needsUpdate = true;
+      this.needsPositionUpdate = false;
+    }
+    if (this.needsColorUpdate) {
+      this.geometry.attributes.color.needsUpdate = true;
+      this.needsColorUpdate = false;
+    }
   }
 }

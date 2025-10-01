@@ -142,7 +142,7 @@ export class InstancedPlanes {
     geometry.attributes.planeType.needsUpdate = true;
   }
 
-  setInstanceTransform(instanceId, position, rotation, scale = 1, planeType = null) {
+  setInstanceTransform(instanceId, position, rotation, scale = 1, planeType = null, triggerUpdate = true) {
     if (instanceId >= this.maxCount) return;
 
     // Skip expensive operations if mesh is not visible
@@ -156,12 +156,18 @@ export class InstancedPlanes {
       new THREE.Vector3(finalScale, finalScale, finalScale)
     );
     this.instancedMesh.setMatrixAt(instanceId, matrix);
-    this.instancedMesh.instanceMatrix.needsUpdate = true;
+
+    // Only trigger update if explicitly requested (for batching)
+    if (triggerUpdate) {
+      this.instancedMesh.instanceMatrix.needsUpdate = true;
+    }
 
     // Set plane type if specified, otherwise use random
     if (planeType !== null) {
       this.planeTypes[instanceId] = Math.max(0, Math.min(7, planeType));
-      this.instancedMesh.geometry.attributes.planeType.needsUpdate = true;
+      if (triggerUpdate) {
+        this.instancedMesh.geometry.attributes.planeType.needsUpdate = true;
+      }
     }
   }
 
@@ -236,5 +242,19 @@ export class InstancedPlanes {
 
   getMesh() {
     return this.instancedMesh;
+  }
+
+  // Force update of instance matrices (for batched updates)
+  forceMatrixUpdate() {
+    if (this.instancedMesh) {
+      this.instancedMesh.instanceMatrix.needsUpdate = true;
+    }
+  }
+
+  // Force update of plane type attributes (for batched updates)
+  forcePlaneTypeUpdate() {
+    if (this.instancedMesh && this.instancedMesh.geometry.attributes.planeType) {
+      this.instancedMesh.geometry.attributes.planeType.needsUpdate = true;
+    }
   }
 }

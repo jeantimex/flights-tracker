@@ -485,14 +485,31 @@ function animate() {
   // Update flight animations with speed multiplier (only if planes are visible)
   if (flights && guiControls.showPlanes) {
     const adjustedDelta = delta * guiControls.animationSpeed;
+    let needsMatrixUpdate = false;
+    let needsPlaneTypeUpdate = false;
+
     flights.forEach((flight) => {
       flight.update(adjustedDelta);
+      // Track if we need updates for batching
+      if (currentPlaneRenderer && !currentPlaneRenderer.isParticleRenderer) {
+        needsMatrixUpdate = true;
+      }
     });
+
+    // Batch update instance matrices for instanced planes only once per frame
+    if (needsMatrixUpdate && currentPlaneRenderer && !currentPlaneRenderer.isParticleRenderer) {
+      currentPlaneRenderer.forceMatrixUpdate();
+    }
   }
 
   // Update particle planes if active
   if (currentPlaneRenderer === particlePlanes && particlePlanes) {
     particlePlanes.update(delta);
+  }
+
+  // Apply batched updates for flight paths (only once per frame)
+  if (mergedFlightPaths) {
+    mergedFlightPaths.applyBatchedUpdates();
   }
 
   // Update sun position every frame if real-time sun is enabled
