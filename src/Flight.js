@@ -4,7 +4,7 @@ export class Flight {
   constructor(
     flightOptions,
     earth,
-    instancedPlanes,
+    planeRenderer,
     instanceId,
     mergedFlightPaths
   ) {
@@ -17,7 +17,8 @@ export class Flight {
       this.arrival.lng
     );
     this.earth = earth;
-    this.instancedPlanes = instancedPlanes;
+    this.planeRenderer = planeRenderer;
+    this.instancedPlanes = planeRenderer; // Keep backward compatibility
     this.instanceId = instanceId;
     this.mergedFlightPaths = mergedFlightPaths;
     this.curve = null;
@@ -157,44 +158,63 @@ export class Flight {
     const tangent = this.curve.getTangentAt(this.progress).normalize();
     const normal = position.clone().normalize();
 
-    // Update instanced plane position and orientation
-    this.updateInstancedPlane(position, tangent, normal);
+    // Update plane position and orientation
+    this.updatePlane(position, tangent, normal);
   }
 
-  updateInstancedPlane(position, tangent, normal) {
-    if (!this.instancedPlanes || this.instanceId === undefined) return;
+  updatePlane(position, tangent, normal) {
+    if (!this.planeRenderer || this.instanceId === undefined) return;
 
-    // Skip expensive matrix calculations if planes are not visible
-    const planeMesh = this.instancedPlanes.getMesh();
+    // Skip expensive calculations if planes are not visible
+    const planeMesh = this.planeRenderer.getMesh();
     if (!planeMesh || !planeMesh.visible) return;
 
     // Lift the plane slightly above the flight path to avoid overlap with curve
     const planeOffset = 8; // Small offset to lift plane above curve
     const liftedPosition = position.clone().add(normal.clone().multiplyScalar(planeOffset));
 
-    // Calculate the up vector perpendicular to both normal and tangent
-    const up = new THREE.Vector3().crossVectors(normal, tangent).normalize();
+    // Check if this is a particle renderer
+    if (this.planeRenderer.constructor.name === 'ParticlePlanes') {
+      // For particles, set position and velocity
+      const velocity = tangent.clone().multiplyScalar(50); // Particle movement speed
 
-    // Create rotation quaternion
-    const quaternion = new THREE.Quaternion();
-    const matrix = new THREE.Matrix4();
-    matrix.lookAt(new THREE.Vector3(0, 0, 0), tangent, up);
-    quaternion.setFromRotationMatrix(matrix);
+      // Generate color based on longitude for particles
+      const longitude = Math.atan2(position.z, position.x);
+      const normalizedLng = (longitude + Math.PI) / (2 * Math.PI);
+      const color = new THREE.Color().setHSL(normalizedLng, 0.8, 0.6);
 
-    // Apply additional rotations for proper orientation
-    const additionalRotation = new THREE.Quaternion();
-    additionalRotation.setFromEuler(
-      new THREE.Euler(-Math.PI / 2, Math.PI / 2, 0)
-    );
-    quaternion.multiply(additionalRotation);
+      this.planeRenderer.setParticleTransform(this.instanceId, liftedPosition, velocity, color);
+    } else {
+      // For instanced planes, use the original transform logic
+      // Calculate the up vector perpendicular to both normal and tangent
+      const up = new THREE.Vector3().crossVectors(normal, tangent).normalize();
 
-    // Update the instanced plane with lifted position
-    this.instancedPlanes.setInstanceTransform(
-      this.instanceId,
-      liftedPosition,
-      quaternion,
-      this.instancedPlanes.globalScale || 1
-    );
+      // Create rotation quaternion
+      const quaternion = new THREE.Quaternion();
+      const matrix = new THREE.Matrix4();
+      matrix.lookAt(new THREE.Vector3(0, 0, 0), tangent, up);
+      quaternion.setFromRotationMatrix(matrix);
+
+      // Apply additional rotations for proper orientation
+      const additionalRotation = new THREE.Quaternion();
+      additionalRotation.setFromEuler(
+        new THREE.Euler(-Math.PI / 2, Math.PI / 2, 0)
+      );
+      quaternion.multiply(additionalRotation);
+
+      // Update the instanced plane with lifted position
+      this.planeRenderer.setInstanceTransform(
+        this.instanceId,
+        liftedPosition,
+        quaternion,
+        this.planeRenderer.globalScale || 1
+      );
+    }
+  }
+
+  // Keep for backward compatibility
+  updateInstancedPlane(position, tangent, normal) {
+    this.updatePlane(position, tangent, normal);
   }
 
   swapRoute() {
@@ -246,5 +266,10 @@ export class Flight {
 
   getProgress() {
     return this.progress;
+  }
+
+  setPlaneRenderer(newRenderer) {
+    this.planeRenderer = newRenderer;
+    this.instancedPlanes = newRenderer; // Keep backward compatibility
   }
 }

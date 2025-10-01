@@ -4,6 +4,7 @@ import Stats from "stats.js";
 import { Earth } from "./Earth.js";
 import { Flight } from "./Flight.js";
 import { InstancedPlanes } from "./InstancedPlanes.js";
+import { ParticlePlanes } from "./ParticlePlanes.js";
 import { MergedFlightPaths } from "./MergedFlightPaths.js";
 import { Stars } from "./Stars.js";
 import { Controls } from "./Controls.js";
@@ -24,6 +25,8 @@ let scene,
   flights,
   guiControls,
   instancedPlanes,
+  particlePlanes,
+  currentPlaneRenderer,
   mergedFlightPaths,
   stats,
   stars,
@@ -159,6 +162,23 @@ function init() {
   instancedPlanes.addToScene(scene);
   instancedPlanes.setGlobalScale(guiControls.planeSize);
 
+  // Create particle planes manager
+  particlePlanes = new ParticlePlanes(flightData.length, earth.getRadius());
+  particlePlanes.addToScene(scene);
+  particlePlanes.setGlobalScale(guiControls.planeSize);
+
+  // Set initial plane renderer based on controls
+  currentPlaneRenderer = guiControls.planeRenderType === "particles" ? particlePlanes : instancedPlanes;
+
+  // Hide the non-active renderer
+  if (guiControls.planeRenderType === "particles") {
+    instancedPlanes.getMesh().visible = false;
+    particlePlanes.getMesh().visible = true;
+  } else {
+    instancedPlanes.getMesh().visible = true;
+    particlePlanes.getMesh().visible = false;
+  }
+
   // Create merged flight paths manager
   mergedFlightPaths = new MergedFlightPaths();
   mergedFlightPaths.initialize(flightData.length);
@@ -169,7 +189,7 @@ function init() {
     const flight = new Flight(
       flightOptions,
       earth,
-      instancedPlanes,
+      currentPlaneRenderer,
       index,
       mergedFlightPaths
     );
@@ -182,8 +202,8 @@ function init() {
     flight.addToScene(scene);
   });
 
-  // Set active count for instanced planes and flight paths
-  instancedPlanes.setActiveCount(guiControls.flightCount);
+  // Set active count for current plane renderer and flight paths
+  currentPlaneRenderer.setActiveCount(guiControls.flightCount);
   mergedFlightPaths.setVisibleFlightCount(guiControls.flightCount);
 
   // Store all flights for later use
@@ -265,10 +285,11 @@ function setupGUI() {
 
   const callbacks = {
     onPlaneSizeChange: (value) => {
-      if (instancedPlanes) {
-        instancedPlanes.setGlobalScale(value);
+      if (currentPlaneRenderer) {
+        currentPlaneRenderer.setGlobalScale(value);
       }
     },
+    onPlaneRenderTypeChange: switchPlaneRenderer,
     onFlightCountChange: updateFlightCount,
     onShowFlightPathsChange: toggleFlightPaths,
     onShowPlanesChange: togglePlanes,
@@ -289,13 +310,49 @@ function setupGUI() {
   window.guiControlsInstance = controls;
 }
 
+function switchPlaneRenderer(renderType) {
+  // Update the render type in controls
+  guiControls.planeRenderType = renderType;
+
+  // Hide current renderer
+  if (currentPlaneRenderer && currentPlaneRenderer.getMesh()) {
+    currentPlaneRenderer.getMesh().visible = false;
+  }
+
+  // Switch to new renderer
+  if (renderType === "particles") {
+    currentPlaneRenderer = particlePlanes;
+  } else {
+    currentPlaneRenderer = instancedPlanes;
+  }
+
+  // Show new renderer
+  if (currentPlaneRenderer && currentPlaneRenderer.getMesh()) {
+    currentPlaneRenderer.getMesh().visible = guiControls.showPlanes;
+  }
+
+  // Update flights to use new renderer
+  if (window.allFlights) {
+    window.allFlights.forEach((flight) => {
+      flight.setPlaneRenderer(currentPlaneRenderer);
+    });
+  }
+
+  // Apply current settings to new renderer
+  if (currentPlaneRenderer) {
+    currentPlaneRenderer.setActiveCount(guiControls.flightCount);
+    currentPlaneRenderer.setGlobalScale(guiControls.planeSize);
+    currentPlaneRenderer.setColorization(guiControls.colorizeePlanes);
+  }
+}
+
 function updateFlightCount(count) {
   // Update flights array to new count
   flights = window.allFlights.slice(0, count);
 
-  // Update instanced planes active count
-  if (instancedPlanes) {
-    instancedPlanes.setActiveCount(count);
+  // Update current plane renderer active count
+  if (currentPlaneRenderer) {
+    currentPlaneRenderer.setActiveCount(count);
   }
 
   // Update merged flight paths visible count
@@ -335,14 +392,14 @@ function toggleFlightPaths(enabled) {
 }
 
 function togglePlanes(enabled) {
-  if (instancedPlanes && instancedPlanes.getMesh()) {
-    instancedPlanes.getMesh().visible = enabled;
+  if (currentPlaneRenderer && currentPlaneRenderer.getMesh()) {
+    currentPlaneRenderer.getMesh().visible = enabled;
   }
 }
 
 function togglePlaneColorization(enabled) {
-  if (instancedPlanes) {
-    instancedPlanes.setColorization(enabled);
+  if (currentPlaneRenderer) {
+    currentPlaneRenderer.setColorization(enabled);
   }
 }
 
@@ -426,6 +483,11 @@ function animate() {
     flights.forEach((flight) => {
       flight.update(adjustedDelta);
     });
+  }
+
+  // Update particle planes if active
+  if (currentPlaneRenderer === particlePlanes && particlePlanes) {
+    particlePlanes.update(delta);
   }
 
   // Update sun position every frame if real-time sun is enabled
