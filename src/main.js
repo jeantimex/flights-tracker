@@ -294,8 +294,8 @@ function setInitialCameraPosition() {
 
   const targetPosition = rotatedDirection.multiplyScalar(cameraDistance);
 
-  // Set a dramatic starting position for animation (much further back)
-  const startPosition = new THREE.Vector3(0, 0, 15000); // Start far away
+  // Set a closer starting position to avoid the dramatic zoom effect
+  const startPosition = targetPosition.clone().multiplyScalar(1.2); // Start only 20% further out
   camera.position.copy(startPosition);
 
   // Animate camera to target position with 1 second delay
