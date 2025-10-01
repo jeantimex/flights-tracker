@@ -158,7 +158,8 @@ export class Controls {
       .add(this.guiControls, "timeDisplay")
       .name("Time (UTC)")
       .onChange((value) => {
-        // Validate time format (HH:MM or HH:MM:SS)
+        // This should not be called since the input is disabled
+        // But keeping for safety
         if (/^([01]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/.test(value)) {
           this.guiControls.simulatedTime = timeStringToHours(value);
           this.controllers.timeSlider.updateDisplay();
@@ -173,6 +174,14 @@ export class Controls {
           }
         }
       });
+
+    // Disable the time display input to make it read-only
+    if (this.controllers.timeDisplay.__input) {
+      this.controllers.timeDisplay.__input.disabled = true;
+      this.controllers.timeDisplay.__input.style.cursor = 'default';
+      this.controllers.timeDisplay.__input.style.backgroundColor = '#2a2a2a';
+      this.controllers.timeDisplay.__input.style.color = '#cccccc';
+    }
 
     this.controllers.timeSlider = lightingFolder
       .add(this.guiControls, "simulatedTime", 0, 24, 0.1)
