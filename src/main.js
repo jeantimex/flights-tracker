@@ -80,6 +80,39 @@ function checkReadyToRemoveLoadingScreen() {
   }
 }
 
+function hideUIElementsDuringLoading() {
+  // Hide GUI controls (will be created later but start hidden)
+  const guiContainer = document.querySelector('.dg.ac');
+  if (guiContainer) {
+    guiContainer.style.display = 'none';
+  }
+
+  // Hide coordinates in footer (but keep GitHub attribution visible)
+  const coordinatesElement = document.getElementById('coordinates');
+  if (coordinatesElement) {
+    coordinatesElement.style.display = 'none';
+  }
+}
+
+function showUIElementsAfterLoading() {
+  // Show GUI controls
+  const guiContainer = document.querySelector('.dg.ac');
+  if (guiContainer) {
+    guiContainer.style.display = 'block';
+  }
+
+  // Show FPS meter
+  if (stats && stats.dom) {
+    stats.dom.style.display = 'block';
+  }
+
+  // Show coordinates in footer
+  const coordinatesElement = document.getElementById('coordinates');
+  if (coordinatesElement) {
+    coordinatesElement.style.display = 'block';
+  }
+}
+
 function removeLoadingScreen() {
   const loadingScreen = document.getElementById('loading-screen');
   if (loadingScreen) {
@@ -87,6 +120,8 @@ function removeLoadingScreen() {
     loadingScreen.style.transition = 'opacity 0.5s ease-out';
     setTimeout(() => {
       loadingScreen.remove();
+      // Show all UI elements after loading screen is removed
+      showUIElementsAfterLoading();
     }, 500);
   }
 }
@@ -94,6 +129,9 @@ function removeLoadingScreen() {
 function init() {
   // Show loading screen first
   createLoadingScreen();
+
+  // Hide UI elements during loading
+  hideUIElementsDuringLoading();
 
   // Setup GUI controls first
   setupGUI();
@@ -133,6 +171,7 @@ function init() {
   stats.dom.style.position = "absolute";
   stats.dom.style.left = "0px";
   stats.dom.style.top = "0px";
+  stats.dom.style.display = "none"; // Start hidden during loading
   document.body.appendChild(stats.dom);
 
   // Add lighting
@@ -244,7 +283,7 @@ function createFooter() {
     color: white;
     font-family: Arial, sans-serif;
     font-size: 14px;
-    z-index: 1000;
+    z-index: 10000;
     pointer-events: none;
   `;
 
@@ -259,7 +298,7 @@ function createFooter() {
         jeantimex
       </a>
     </div>
-    <div id="coordinates" style="pointer-events: none; font-family: monospace; font-size: 12px; opacity: 0.8;">
+    <div id="coordinates" style="pointer-events: none; font-family: monospace; font-size: 12px; opacity: 0.8; display: none;">
       Lat: 0.00°, Lng: 0.00°
     </div>
   `;
@@ -311,6 +350,12 @@ function setupGUI() {
 
   // Store controls instance globally for access in other functions
   window.guiControlsInstance = controls;
+
+  // Hide GUI controls initially during loading
+  const guiContainer = document.querySelector('.dg.ac');
+  if (guiContainer) {
+    guiContainer.style.display = 'none';
+  }
 }
 
 function switchPlaneRenderer(renderType) {
