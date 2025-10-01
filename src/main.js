@@ -305,9 +305,22 @@ function setInitialCameraPosition() {
 function updateSunPosition() {
   if (directionalLight) {
     if (guiControls.realTimeSun) {
-      // Update simulated time to current time for real-time mode
-      guiControls.simulatedTime = getCurrentUtcTimeHours();
-      guiControls.timeDisplay = hoursToTimeString(guiControls.simulatedTime);
+      // Continuously update UTC time for real-time mode
+      const currentUtcTime = getCurrentUtcTimeHours();
+      guiControls.simulatedTime = currentUtcTime;
+      guiControls.timeDisplay = hoursToTimeString(currentUtcTime);
+
+      // Force update GUI controls to reflect real-time changes
+      if (window.guiControlsInstance && window.guiControlsInstance.controllers) {
+        // Update the time display field
+        if (window.guiControlsInstance.controllers.timeDisplay) {
+          window.guiControlsInstance.controllers.timeDisplay.updateDisplay();
+        }
+        // Update the time slider
+        if (window.guiControlsInstance.controllers.timeSlider) {
+          window.guiControlsInstance.controllers.timeSlider.updateDisplay();
+        }
+      }
 
       const sunPosition = getSunVector3(earth ? earth.getRadius() : 3000, guiControls.simulatedTime);
       directionalLight.position.copy(sunPosition);
@@ -344,11 +357,6 @@ function animate() {
 
   // Update sun position every frame if real-time sun is enabled
   updateSunPosition();
-
-  // Update GUI time display if in real-time mode
-  if (window.guiControlsInstance) {
-    window.guiControlsInstance.updateTimeDisplay();
-  }
 
   // Update coordinate display
   updateCoordinateDisplay();

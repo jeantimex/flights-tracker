@@ -195,28 +195,36 @@ export function getCurrentPacificTimeHours() {
  */
 export function getCurrentUtcTimeHours() {
   const now = new Date();
-  return now.getUTCHours() + now.getUTCMinutes() / 60;
+  const hours = now.getUTCHours();
+  const minutes = now.getUTCMinutes();
+  const seconds = now.getUTCSeconds();
+  return hours + minutes / 60 + seconds / 3600;
 }
 
 /**
- * Convert decimal hours to HH:MM format
+ * Convert decimal hours to HH:MM:SS format
  * @param {number} hours - Decimal hours (0-24)
- * @returns {string} Time in HH:MM format
+ * @returns {string} Time in HH:MM:SS format
  */
 export function hoursToTimeString(hours) {
   const h = Math.floor(hours);
-  const m = Math.floor((hours - h) * 60);
-  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+  const remainingMinutes = (hours - h) * 60;
+  const m = Math.floor(remainingMinutes);
+  const s = Math.floor((remainingMinutes - m) * 60);
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 }
 
 /**
- * Convert HH:MM format to decimal hours
- * @param {string} timeString - Time in HH:MM format
+ * Convert HH:MM or HH:MM:SS format to decimal hours
+ * @param {string} timeString - Time in HH:MM or HH:MM:SS format
  * @returns {number} Decimal hours
  */
 export function timeStringToHours(timeString) {
-  const [hours, minutes] = timeString.split(':').map(Number);
-  return hours + minutes / 60;
+  const parts = timeString.split(':').map(Number);
+  const hours = parts[0] || 0;
+  const minutes = parts[1] || 0;
+  const seconds = parts[2] || 0;
+  return hours + minutes / 60 + seconds / 3600;
 }
 
 

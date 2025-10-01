@@ -158,8 +158,8 @@ export class Controls {
       .add(this.guiControls, "timeDisplay")
       .name("Time (UTC)")
       .onChange((value) => {
-        // Validate time format
-        if (/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(value)) {
+        // Validate time format (HH:MM or HH:MM:SS)
+        if (/^([01]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/.test(value)) {
           this.guiControls.simulatedTime = timeStringToHours(value);
           this.controllers.timeSlider.updateDisplay();
           // Disable real-time sun when manually adjusting time
@@ -219,19 +219,11 @@ export class Controls {
 
   /**
    * Update time display for real-time mode
+   * Note: This is now handled directly in main.js updateSunPosition()
    */
   updateTimeDisplay() {
-    if (this.guiControls.realTimeSun) {
-      this.guiControls.simulatedTime = getCurrentUtcTimeHours();
-      this.guiControls.timeDisplay = hoursToTimeString(this.guiControls.simulatedTime);
-
-      if (this.controllers.timeDisplay) {
-        this.controllers.timeDisplay.updateDisplay();
-      }
-      if (this.controllers.timeSlider) {
-        this.controllers.timeSlider.updateDisplay();
-      }
-    }
+    // This method is kept for backward compatibility
+    // but the actual updates are now handled in main.js
   }
 
   /**
