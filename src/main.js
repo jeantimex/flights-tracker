@@ -9,9 +9,8 @@ import { Stars } from "./Stars.js";
 import { Controls } from "./Controls.js";
 import {
   getSunVector3,
-  getCurrentPacificTimeHours,
+  getCurrentUtcTimeHours,
   hoursToTimeString,
-  pacificToUtcHours,
   animateCameraToPosition,
   vector3ToLatLng
 } from "./Utils.js";
@@ -279,9 +278,8 @@ function togglePlaneColorization(enabled) {
 
 function setInitialCameraPosition() {
   // Get current sun position to determine day/night terminator
-  const pacificTime = getCurrentPacificTimeHours();
-  const utcTime = pacificToUtcHours(pacificTime);
-  const sunPos = getSunVector3(3000, (utcTime + 12) % 24);
+  const utcTime = getCurrentUtcTimeHours();
+  const sunPos = getSunVector3(3000, utcTime);
 
   // Position camera at the sun position, then pan 90 degrees to the right
   const cameraDistance = 6000;
@@ -308,16 +306,14 @@ function updateSunPosition() {
   if (directionalLight) {
     if (guiControls.realTimeSun) {
       // Update simulated time to current time for real-time mode
-      guiControls.simulatedTime = getCurrentPacificTimeHours();
+      guiControls.simulatedTime = getCurrentUtcTimeHours();
       guiControls.timeDisplay = hoursToTimeString(guiControls.simulatedTime);
 
-      const utcTime = pacificToUtcHours(guiControls.simulatedTime);
-      const sunPosition = getSunVector3(earth ? earth.getRadius() : 3000, (utcTime + 12) % 24);
+      const sunPosition = getSunVector3(earth ? earth.getRadius() : 3000, guiControls.simulatedTime);
       directionalLight.position.copy(sunPosition);
     } else if (guiControls.dayNightEffect) {
-      // Use simulated time for manual time control
-      const utcTime = pacificToUtcHours(guiControls.simulatedTime);
-      const sunPosition = getSunVector3(earth ? earth.getRadius() : 3000, (utcTime + 12) % 24);
+      // Use simulated time for manual time control (already in UTC)
+      const sunPosition = getSunVector3(earth ? earth.getRadius() : 3000, guiControls.simulatedTime);
       directionalLight.position.copy(sunPosition);
     }
   }

@@ -1,5 +1,5 @@
 import { GUI } from "dat.gui";
-import { getCurrentPacificTimeHours, hoursToTimeString, timeStringToHours } from "./Utils.js";
+import { getCurrentUtcTimeHours, hoursToTimeString, timeStringToHours } from "./Utils.js";
 
 /**
  * Controls class manages all GUI controls and their interactions
@@ -17,8 +17,8 @@ export class Controls {
       showFlightPaths: true,
       showPlanes: true,
       realTimeSun: true,
-      simulatedTime: getCurrentPacificTimeHours(),
-      timeDisplay: hoursToTimeString(getCurrentPacificTimeHours()),
+      simulatedTime: getCurrentUtcTimeHours(),
+      timeDisplay: hoursToTimeString(getCurrentUtcTimeHours()),
       nightBrightness: 1.5,
       dayBrightness: 2.0,
       colorizeePlanes: true,
@@ -142,7 +142,7 @@ export class Controls {
           }
         } else {
           // Update simulated time to current time when enabling real-time
-          this.guiControls.simulatedTime = getCurrentPacificTimeHours();
+          this.guiControls.simulatedTime = getCurrentUtcTimeHours();
           this.guiControls.timeDisplay = hoursToTimeString(this.guiControls.simulatedTime);
           // Refresh GUI controllers to show updated values
           this.controllers.timeDisplay.updateDisplay();
@@ -156,7 +156,7 @@ export class Controls {
 
     this.controllers.timeDisplay = lightingFolder
       .add(this.guiControls, "timeDisplay")
-      .name("Time (Pacific)")
+      .name("Time (UTC)")
       .onChange((value) => {
         // Validate time format
         if (/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(value)) {
@@ -222,7 +222,7 @@ export class Controls {
    */
   updateTimeDisplay() {
     if (this.guiControls.realTimeSun) {
-      this.guiControls.simulatedTime = getCurrentPacificTimeHours();
+      this.guiControls.simulatedTime = getCurrentUtcTimeHours();
       this.guiControls.timeDisplay = hoursToTimeString(this.guiControls.simulatedTime);
 
       if (this.controllers.timeDisplay) {

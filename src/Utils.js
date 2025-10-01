@@ -126,14 +126,15 @@ export function getSunPosition(simulatedTimeHours = null) {
   const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
   const utcDate = new Date(utc);
 
-  // Calculate day of year
-  const start = new Date(utcDate.getFullYear(), 0, 0);
+  // Calculate day of year (1-365/366)
+  const start = new Date(utcDate.getFullYear(), 0, 1); // Start from Jan 1st
   const diff = utcDate - start;
-  const dayOfYear = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const dayOfYear = Math.floor(diff / (1000 * 60 * 60 * 24)) + 1;
 
   // Solar declination (latitude where sun is directly overhead)
-  // Approximation: varies from -23.45° to +23.45° throughout the year
-  const declination = 23.45 * Math.sin(degreesToRadians((360 / 365) * (dayOfYear - 81)));
+  // More accurate formula using day of year
+  // October 1st is around day 274, which should give ~-3.25° declination
+  const declination = 23.45 * Math.sin(degreesToRadians((360 / 365.25) * (dayOfYear - 81)));
 
   // Use simulated time if provided, otherwise use current time
   let timeDecimal;
@@ -146,10 +147,15 @@ export function getSunPosition(simulatedTimeHours = null) {
     timeDecimal = hours + minutes/60 + seconds/3600;
   }
 
-  // Solar noon occurs at 12:00 UTC, so offset by 12 hours and convert to degrees
-  const longitude = ((timeDecimal - 12) * 15) % 360;
+  // Calculate longitude where sun is at zenith
+  // At 02:34:43 UTC (2.578 hours), sun should be at 138.75° East
+  // Solar longitude = (12 - UTC_time) * 15
+  const longitude = (12 - timeDecimal) * 15;
+
   // Normalize to -180 to +180 range
-  const normalizedLongitude = longitude > 180 ? longitude - 360 : longitude;
+  let normalizedLongitude = longitude;
+  while (normalizedLongitude > 180) normalizedLongitude -= 360;
+  while (normalizedLongitude < -180) normalizedLongitude += 360;
 
   return {
     lat: declination,
@@ -184,6 +190,15 @@ export function getCurrentPacificTimeHours() {
 }
 
 /**
+ * Get current UTC time in decimal hours (0-24)
+ * @returns {number} Current UTC time in decimal hours
+ */
+export function getCurrentUtcTimeHours() {
+  const now = new Date();
+  return now.getUTCHours() + now.getUTCMinutes() / 60;
+}
+
+/**
  * Convert decimal hours to HH:MM format
  * @param {number} hours - Decimal hours (0-24)
  * @returns {string} Time in HH:MM format
@@ -204,52 +219,6 @@ export function timeStringToHours(timeString) {
   return hours + minutes / 60;
 }
 
-/**
- * Convert UTC time to Pacific time display string
- * @param {number} utcHours - UTC time in decimal hours
- * @returns {string} Pacific time in HH:MM format
- */
-export function utcToPacificTimeString(utcHours) {
-  const utcDate = new Date();
-  utcDate.setUTCHours(Math.floor(utcHours), (utcHours % 1) * 60, 0, 0);
-  const pacificTime = new Date(utcDate.toLocaleString("en-US", {timeZone: "America/Los_Angeles"}));
-  const hours = pacificTime.getHours();
-  const minutes = pacificTime.getMinutes();
-  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-}
-
-/**
- * Convert UTC decimal hours to Pacific decimal hours
- * @param {number} utcHours - UTC time in decimal hours
- * @returns {number} Pacific time in decimal hours
- */
-export function utcToPacificHours(utcHours) {
-  const utcDate = new Date();
-  utcDate.setUTCHours(Math.floor(utcHours), (utcHours % 1) * 60, 0, 0);
-  const pacificTime = new Date(utcDate.toLocaleString("en-US", {timeZone: "America/Los_Angeles"}));
-  return pacificTime.getHours() + pacificTime.getMinutes() / 60;
-}
-
-/**
- * Convert Pacific time to UTC for sun calculations
- * @param {number} pacificHours - Pacific time in decimal hours
- * @returns {number} UTC time in decimal hours
- */
-export function pacificToUtcHours(pacificHours) {
-  // Get timezone offset between Pacific and UTC
-  const now = new Date();
-  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-  const utcDate = new Date(utc);
-
-  // Create Pacific date for the same day
-  const pacificDate = new Date(now.toLocaleString("en-US", {timeZone: "America/Los_Angeles"}));
-
-  // Calculate offset in hours
-  const offsetHours = (utcDate.getTime() - pacificDate.getTime()) / (1000 * 60 * 60);
-
-  // Convert Pacific to UTC
-  return (pacificHours + offsetHours + 24) % 24;
-}
 
 /**
  * Animate camera from current position to target position with smooth easing
