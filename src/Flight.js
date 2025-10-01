@@ -24,7 +24,7 @@ export class Flight {
     this.progress = 0;
     this.speed = flightOptions.speed || 500; // use speed from data or default to 500
     this.duration = 0; // will be calculated based on path length
-    this.waitTime = 2; // seconds to wait at destination
+    this.waitTime = 5; // seconds to wait at destination
     this.isWaiting = false;
     this.waitTimer = 0;
     this.createFlightPath();
