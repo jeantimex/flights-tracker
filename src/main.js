@@ -5,6 +5,7 @@ import { Earth } from "./Earth.js";
 import { Flight } from "./Flight.js";
 import { InstancedPlanes } from "./InstancedPlanes.js";
 import { ParticlePlanes } from "./ParticlePlanes.js";
+import { GLBPlanes } from "./GLBPlanes.js";
 import { MergedFlightPaths } from "./MergedFlightPaths.js";
 import { Stars } from "./Stars.js";
 import { Controls } from "./Controls.js";
@@ -26,6 +27,7 @@ let scene,
   guiControls,
   instancedPlanes,
   particlePlanes,
+  glbPlanes,
   currentPlaneRenderer,
   mergedFlightPaths,
   stats,
@@ -207,16 +209,26 @@ function init() {
   particlePlanes.addToScene(scene);
   particlePlanes.setGlobalScale(guiControls.planeSize);
 
-  // Set initial plane renderer based on controls
-  currentPlaneRenderer = guiControls.planeRenderType === "particles" ? particlePlanes : instancedPlanes;
+  // Create GLB planes manager
+  glbPlanes = new GLBPlanes(flightData.length, 10);
+  glbPlanes.setGlobalScale(guiControls.planeSize * 0.5);
 
-  // Hide the non-active renderer
+  // Set initial plane renderer based on controls
   if (guiControls.planeRenderType === "particles") {
-    instancedPlanes.getMesh().visible = false;
-    particlePlanes.getMesh().visible = true;
+    currentPlaneRenderer = particlePlanes;
+  } else if (guiControls.planeRenderType === "glb") {
+    currentPlaneRenderer = glbPlanes;
   } else {
-    instancedPlanes.getMesh().visible = true;
-    particlePlanes.getMesh().visible = false;
+    currentPlaneRenderer = instancedPlanes;
+  }
+
+  // Hide the non-active renderers
+  instancedPlanes.getMesh().visible = guiControls.planeRenderType === "instanced";
+  particlePlanes.getMesh().visible = guiControls.planeRenderType === "particles";
+
+  // Only add GLB planes to scene and make visible if selected
+  if (guiControls.planeRenderType === "glb") {
+    glbPlanes.addToScene(scene);
   }
 
   // Create merged flight paths manager
@@ -358,7 +370,7 @@ function setupGUI() {
   }
 }
 
-function switchPlaneRenderer(renderType) {
+async function switchPlaneRenderer(renderType) {
   // Update the render type in controls
   guiControls.planeRenderType = renderType;
 
@@ -367,9 +379,18 @@ function switchPlaneRenderer(renderType) {
     currentPlaneRenderer.getMesh().visible = false;
   }
 
+  // Remove GLB planes from scene if switching away from GLB
+  if (currentPlaneRenderer === glbPlanes && renderType !== "glb") {
+    glbPlanes.removeFromScene(scene);
+  }
+
   // Switch to new renderer
   if (renderType === "particles") {
     currentPlaneRenderer = particlePlanes;
+  } else if (renderType === "glb") {
+    currentPlaneRenderer = glbPlanes;
+    // Lazy load GLB model when first selected
+    await glbPlanes.addToScene(scene);
   } else {
     currentPlaneRenderer = instancedPlanes;
   }
@@ -388,11 +409,23 @@ function switchPlaneRenderer(renderType) {
 
   // Apply current settings to new renderer
   if (currentPlaneRenderer) {
-    currentPlaneRenderer.setActiveCount(guiControls.flightCount);
+    // Limit flight count for GLB renderer for better performance
+    const maxFlights = currentPlaneRenderer === glbPlanes ?
+      Math.min(guiControls.flightCount, 1000) : guiControls.flightCount;
+
+    currentPlaneRenderer.setActiveCount(maxFlights);
+
     // Apply appropriate scaling factor based on renderer type
     const scaleFactor = currentPlaneRenderer.isParticleRenderer ? 1.0 : 0.5;
     currentPlaneRenderer.setGlobalScale(guiControls.planeSize * scaleFactor);
     currentPlaneRenderer.setColorization(guiControls.colorizeePlanes);
+
+    // GLB planes are now simple white - no brightness adjustment needed
+
+    // Update flight count display if we limited it for GLB
+    if (currentPlaneRenderer === glbPlanes && maxFlights < guiControls.flightCount) {
+      console.log(`GLB Performance: Limited flights to ${maxFlights} for better performance`);
+    }
   }
 }
 
@@ -400,9 +433,18 @@ function updateFlightCount(count) {
   // Update flights array to new count
   flights = window.allFlights.slice(0, count);
 
-  // Update current plane renderer active count
+  // Update current plane renderer active count with performance limits
   if (currentPlaneRenderer) {
-    currentPlaneRenderer.setActiveCount(count);
+    // Limit flight count for GLB renderer for better performance
+    const maxFlights = currentPlaneRenderer === glbPlanes ?
+      Math.min(count, 1000) : count;
+
+    currentPlaneRenderer.setActiveCount(maxFlights);
+
+    // Show performance warning if we limited the count
+    if (currentPlaneRenderer === glbPlanes && maxFlights < count) {
+      console.log(`GLB Performance: Limited flights to ${maxFlights} for better performance`);
+    }
   }
 
   // Update merged flight paths visible count
@@ -541,9 +583,13 @@ function animate() {
       }
     });
 
-    // Batch update instance matrices for instanced planes only once per frame
+    // Batch update instance matrices for instanced and GLB planes only once per frame
     if (needsMatrixUpdate && currentPlaneRenderer && !currentPlaneRenderer.isParticleRenderer) {
       currentPlaneRenderer.forceMatrixUpdate();
+      // Also update color attributes for GLB planes if they have the method
+      if (currentPlaneRenderer.forceColorUpdate) {
+        currentPlaneRenderer.forceColorUpdate();
+      }
     }
   }
 

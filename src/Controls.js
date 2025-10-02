@@ -11,7 +11,7 @@ export class Controls {
     this.guiControls = {
       planeSize: 5.0,
       animationSpeed: 0.3,
-      flightCount: 3500,
+      flightCount: 1,
       dayNightEffect: true,
       atmosphereEffect: true,
       showFlightPaths: true,
@@ -22,7 +22,7 @@ export class Controls {
       nightBrightness: 0.8,
       dayBrightness: 2.0,
       colorizeePlanes: true,
-      planeRenderType: "instanced", // "instanced" or "particles"
+      planeRenderType: "instanced", // "instanced", "particles", or "glb"
     };
     this.callbacks = {};
   }
@@ -47,7 +47,7 @@ export class Controls {
     const planeFolder = this.gui.addFolder("Plane Controls");
 
     planeFolder
-      .add(this.guiControls, "planeRenderType", ["instanced", "particles"])
+      .add(this.guiControls, "planeRenderType", ["instanced", "particles", "glb"])
       .name("Render Type")
       .onChange((value) => {
         if (this.callbacks.onPlaneRenderTypeChange) {
