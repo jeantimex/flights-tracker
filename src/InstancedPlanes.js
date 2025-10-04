@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { createSVGTexture } from "./Utils.js";
+import { matrixPool, composeMatrix } from "./MatrixPool.js";
 
 export class InstancedPlanes {
   constructor(maxCount = 35000, size = 100) {
@@ -10,6 +11,9 @@ export class InstancedPlanes {
     this.planeTextures = [];
     this.isParticleRenderer = false; // Add identifier for reliable type checking
     this.planeTypes = new Float32Array(maxCount); // Store plane type for each instance
+
+    // Reusable objects to avoid allocations
+    this._tempScaleVector = new THREE.Vector3();
     this.planeColors = [
       new THREE.Color(0xE8F5E9), // Green
       new THREE.Color(0xE1F5FE), // Blue
@@ -129,7 +133,7 @@ export class InstancedPlanes {
     );
 
     // Set initial transform for all instances (hidden by default)
-    const matrix = new THREE.Matrix4();
+    const matrix = matrixPool.get();
     matrix.makeScale(0, 0, 0); // Hide initially
 
     for (let i = 0; i < this.maxCount; i++) {
@@ -137,6 +141,9 @@ export class InstancedPlanes {
       // Set random plane type for each instance
       this.planeTypes[i] = Math.floor(Math.random() * 8);
     }
+
+    // Return matrix to pool after initialization
+    matrixPool.release(matrix);
 
     this.instancedMesh.instanceMatrix.needsUpdate = true;
     geometry.attributes.planeType.needsUpdate = true;
@@ -149,13 +156,14 @@ export class InstancedPlanes {
     if (!this.instancedMesh || !this.instancedMesh.visible) return;
 
     const finalScale = scale * (this.globalScale || 1);
-    const matrix = new THREE.Matrix4();
-    matrix.compose(
-      position,
-      rotation,
-      new THREE.Vector3(finalScale, finalScale, finalScale)
-    );
-    this.instancedMesh.setMatrixAt(instanceId, matrix);
+
+    // Use matrix pool to avoid allocations
+    matrixPool.withMatrix((matrix) => {
+      // Reuse scale vector to avoid allocation
+      this._tempScaleVector.set(finalScale, finalScale, finalScale);
+      composeMatrix(matrix, position, rotation, this._tempScaleVector);
+      this.instancedMesh.setMatrixAt(instanceId, matrix);
+    });
 
     // Only trigger update if explicitly requested (for batching)
     if (triggerUpdate) {
@@ -174,9 +182,11 @@ export class InstancedPlanes {
   hideInstance(instanceId) {
     if (instanceId >= this.maxCount) return;
 
-    const matrix = new THREE.Matrix4();
-    matrix.makeScale(0, 0, 0); // Hide by scaling to zero
-    this.instancedMesh.setMatrixAt(instanceId, matrix);
+    // Use matrix pool to avoid allocations
+    matrixPool.withMatrix((matrix) => {
+      matrix.makeScale(0, 0, 0); // Hide by scaling to zero
+      this.instancedMesh.setMatrixAt(instanceId, matrix);
+    });
     this.instancedMesh.instanceMatrix.needsUpdate = true;
   }
 

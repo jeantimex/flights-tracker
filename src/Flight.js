@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { matrixPool } from "./MatrixPool.js";
 
 export class Flight {
   constructor(
@@ -28,6 +29,14 @@ export class Flight {
     this.waitTime = 5; // seconds to wait at destination
     this.isWaiting = false;
     this.waitTimer = 0;
+
+    // Reusable objects to avoid allocations during animation
+    this._tempVector3 = new THREE.Vector3();
+    this._tempVector3Zero = new THREE.Vector3(0, 0, 0);
+    this._tempQuaternion = new THREE.Quaternion();
+    this._tempQuaternion2 = new THREE.Quaternion();
+    this._tempEuler = new THREE.Euler(-Math.PI / 2, Math.PI / 2, 0);
+
     this.createFlightPath();
   }
 
@@ -192,21 +201,18 @@ export class Flight {
       this.planeRenderer.setParticleTransform(this.instanceId, liftedPosition, velocity, color);
     } else {
       // For instanced planes, use the original transform logic
-      // Calculate the up vector perpendicular to both normal and tangent
-      const up = new THREE.Vector3().crossVectors(normal, tangent).normalize();
+      // Calculate the up vector perpendicular to both normal and tangent (reuse temp vector)
+      this._tempVector3.crossVectors(normal, tangent).normalize();
 
-      // Create rotation quaternion
-      const quaternion = new THREE.Quaternion();
-      const matrix = new THREE.Matrix4();
-      matrix.lookAt(new THREE.Vector3(0, 0, 0), tangent, up);
-      quaternion.setFromRotationMatrix(matrix);
+      // Create rotation quaternion using matrix pool
+      matrixPool.withMatrix((matrix) => {
+        matrix.lookAt(this._tempVector3Zero, tangent, this._tempVector3);
+        this._tempQuaternion.setFromRotationMatrix(matrix);
+      });
 
-      // Apply additional rotations for proper orientation
-      const additionalRotation = new THREE.Quaternion();
-      additionalRotation.setFromEuler(
-        new THREE.Euler(-Math.PI / 2, Math.PI / 2, 0)
-      );
-      quaternion.multiply(additionalRotation);
+      // Apply additional rotations for proper orientation (reuse quaternion)
+      this._tempQuaternion2.setFromEuler(this._tempEuler);
+      this._tempQuaternion.multiply(this._tempQuaternion2);
 
       // Update the instanced plane with lifted position (without triggering update)
       // Use instance ID to determine plane type for variety (8 different plane types)
@@ -214,7 +220,7 @@ export class Flight {
       this.planeRenderer.setInstanceTransform(
         this.instanceId,
         liftedPosition,
-        quaternion,
+        this._tempQuaternion,
         1, // Base scale - globalScale is applied internally in setInstanceTransform
         planeType, // Plane type for texture and color selection
         false // Skip immediate update for batching

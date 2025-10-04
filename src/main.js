@@ -3,7 +3,9 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import Stats from "stats.js";
 import { Earth } from "./Earth.js";
 import { Flight } from "./Flight.js";
+import { GPUFlight } from "./GPUFlight.js";
 import { InstancedPlanes } from "./InstancedPlanes.js";
+import { GPUInstancedPlanes } from "./GPUInstancedPlanes.js";
 import { ParticlePlanes } from "./ParticlePlanes.js";
 import { MergedFlightPaths } from "./MergedFlightPaths.js";
 import { Stars } from "./Stars.js";
@@ -25,6 +27,7 @@ let scene,
   flights,
   guiControls,
   instancedPlanes,
+  gpuInstancedPlanes,
   particlePlanes,
   currentPlaneRenderer,
   mergedFlightPaths,
@@ -196,10 +199,15 @@ function init() {
   });
   earth.addToScene(scene);
 
-  // Create instanced planes manager with much smaller base size (10x smaller than original)
+  // Create GPU-accelerated instanced planes manager
+  gpuInstancedPlanes = new GPUInstancedPlanes(flightData.length, 10, earth.getRadius());
+  gpuInstancedPlanes.addToScene(scene);
+  gpuInstancedPlanes.setGlobalScale(guiControls.planeSize * 1.0);
+  gpuInstancedPlanes.setColorization(guiControls.colorizeePlanes);
+
+  // Create CPU instanced planes manager (for fallback)
   instancedPlanes = new InstancedPlanes(flightData.length, 10);
   instancedPlanes.addToScene(scene);
-  // Scale by 1.0 so that size=1 gives normal base size (2x bigger than before)
   instancedPlanes.setGlobalScale(guiControls.planeSize * 1.0);
   instancedPlanes.setColorization(guiControls.colorizeePlanes);
 
@@ -210,16 +218,18 @@ function init() {
   particlePlanes.setColorization(guiControls.colorizeePlanes);
 
   // Set initial plane renderer based on controls
-  currentPlaneRenderer = guiControls.planeRenderType === "particles" ? particlePlanes : instancedPlanes;
-
-  // Hide the non-active renderer
-  if (guiControls.planeRenderType === "particles") {
-    instancedPlanes.getMesh().visible = false;
-    particlePlanes.getMesh().visible = true;
+  if (guiControls.planeRenderType === "gpu") {
+    currentPlaneRenderer = gpuInstancedPlanes;
+  } else if (guiControls.planeRenderType === "particles") {
+    currentPlaneRenderer = particlePlanes;
   } else {
-    instancedPlanes.getMesh().visible = true;
-    particlePlanes.getMesh().visible = false;
+    currentPlaneRenderer = instancedPlanes;
   }
+
+  // Hide the non-active renderers
+  gpuInstancedPlanes.getMesh().visible = (guiControls.planeRenderType === "gpu");
+  instancedPlanes.getMesh().visible = (guiControls.planeRenderType === "instanced");
+  particlePlanes.getMesh().visible = (guiControls.planeRenderType === "particles");
 
   // Create merged flight paths manager
   mergedFlightPaths = new MergedFlightPaths();
@@ -228,7 +238,9 @@ function init() {
 
   // Create all flights from data with instance IDs
   const allFlights = flightData.map((flightOptions, index) => {
-    const flight = new Flight(
+    // Use GPU flight for GPU mode, regular flight for others
+    const FlightClass = guiControls.planeRenderType === "gpu" ? GPUFlight : Flight;
+    const flight = new FlightClass(
       flightOptions,
       earth,
       currentPlaneRenderer,
@@ -328,9 +340,22 @@ function setupGUI() {
   const callbacks = {
     onPlaneSizeChange: (value) => {
       if (currentPlaneRenderer) {
-        // Apply 2.0 scaling factor for particle planes and 1.0 for instanced planes (2x bigger than before)
-        const scaleFactor = currentPlaneRenderer.isParticleRenderer ? 2.0 : 1.0;
+        // Apply 2.0 scaling factor for particle planes and 1.0 for others (2x bigger than before)
+        let scaleFactor = 1.0;
+        if (currentPlaneRenderer.isParticleRenderer) {
+          scaleFactor = 2.0;
+        } else if (guiControls.planeRenderType === "gpu") {
+          scaleFactor = 1.0; // GPU renderer handles scaling internally
+        } else {
+          scaleFactor = 1.0; // CPU instanced renderer
+        }
         currentPlaneRenderer.setGlobalScale(value * scaleFactor);
+      }
+    },
+    onAnimationSpeedChange: (value) => {
+      // Update animation speed for GPU renderer
+      if (currentPlaneRenderer && currentPlaneRenderer.setAnimationSpeed) {
+        currentPlaneRenderer.setAnimationSpeed(value);
       }
     },
     onPlaneRenderTypeChange: switchPlaneRenderer,
@@ -364,13 +389,21 @@ function switchPlaneRenderer(renderType) {
   // Update the render type in controls
   guiControls.planeRenderType = renderType;
 
-  // Hide current renderer
-  if (currentPlaneRenderer && currentPlaneRenderer.getMesh()) {
-    currentPlaneRenderer.getMesh().visible = false;
+  // Hide all renderers
+  if (gpuInstancedPlanes && gpuInstancedPlanes.getMesh()) {
+    gpuInstancedPlanes.getMesh().visible = false;
+  }
+  if (instancedPlanes && instancedPlanes.getMesh()) {
+    instancedPlanes.getMesh().visible = false;
+  }
+  if (particlePlanes && particlePlanes.getMesh()) {
+    particlePlanes.getMesh().visible = false;
   }
 
   // Switch to new renderer
-  if (renderType === "particles") {
+  if (renderType === "gpu") {
+    currentPlaneRenderer = gpuInstancedPlanes;
+  } else if (renderType === "particles") {
     currentPlaneRenderer = particlePlanes;
   } else {
     currentPlaneRenderer = instancedPlanes;
@@ -381,8 +414,37 @@ function switchPlaneRenderer(renderType) {
     currentPlaneRenderer.getMesh().visible = guiControls.showPlanes;
   }
 
-  // Update flights to use new renderer
-  if (window.allFlights) {
+  // For GPU mode, we need to recreate flights with GPU flight class
+  if (renderType === "gpu" && window.allFlights && window.allFlights[0].constructor.name !== "GPUFlight") {
+    // Recreate all flights as GPU flights
+    const newAllFlights = flightData.map((flightOptions, index) => {
+      const flight = new GPUFlight(
+        flightOptions,
+        earth,
+        currentPlaneRenderer,
+        index,
+        mergedFlightPaths
+      );
+      return flight;
+    });
+    window.allFlights = newAllFlights;
+    flights = newAllFlights.slice(0, guiControls.flightCount);
+  } else if (renderType !== "gpu" && window.allFlights && window.allFlights[0].constructor.name === "GPUFlight") {
+    // Recreate all flights as regular flights
+    const newAllFlights = flightData.map((flightOptions, index) => {
+      const flight = new Flight(
+        flightOptions,
+        earth,
+        currentPlaneRenderer,
+        index,
+        mergedFlightPaths
+      );
+      return flight;
+    });
+    window.allFlights = newAllFlights;
+    flights = newAllFlights.slice(0, guiControls.flightCount);
+  } else if (window.allFlights) {
+    // Just update renderer for existing flights
     window.allFlights.forEach((flight) => {
       flight.setPlaneRenderer(currentPlaneRenderer);
     });
@@ -392,9 +454,21 @@ function switchPlaneRenderer(renderType) {
   if (currentPlaneRenderer) {
     currentPlaneRenderer.setActiveCount(guiControls.flightCount);
     // Apply appropriate scaling factor based on renderer type (2x bigger than before)
-    const scaleFactor = currentPlaneRenderer.isParticleRenderer ? 2.0 : 1.0;
+    let scaleFactor = 1.0;
+    if (currentPlaneRenderer.isParticleRenderer) {
+      scaleFactor = 2.0;
+    } else if (renderType === "gpu") {
+      scaleFactor = 1.0; // GPU renderer handles scaling internally
+    } else {
+      scaleFactor = 1.0; // CPU instanced renderer
+    }
     currentPlaneRenderer.setGlobalScale(guiControls.planeSize * scaleFactor);
     currentPlaneRenderer.setColorization(guiControls.colorizeePlanes);
+
+    // Set animation speed for GPU renderer
+    if (renderType === "gpu" && currentPlaneRenderer.setAnimationSpeed) {
+      currentPlaneRenderer.setAnimationSpeed(guiControls.animationSpeed);
+    }
   }
 }
 
@@ -529,29 +603,39 @@ function animate() {
     stars.update(delta);
   }
 
-  // Update flight animations with speed multiplier (only if planes are visible)
-  if (flights && guiControls.showPlanes) {
-    const adjustedDelta = delta * guiControls.animationSpeed;
-    let needsMatrixUpdate = false;
-    let needsPlaneTypeUpdate = false;
-
-    flights.forEach((flight) => {
-      flight.update(adjustedDelta);
-      // Track if we need updates for batching
-      if (currentPlaneRenderer && !currentPlaneRenderer.isParticleRenderer) {
-        needsMatrixUpdate = true;
+  // Handle different animation modes
+  if (guiControls.showPlanes) {
+    if (guiControls.planeRenderType === "gpu") {
+      // GPU animation: just update the GPU renderer with time
+      if (currentPlaneRenderer && currentPlaneRenderer.update) {
+        currentPlaneRenderer.update(delta);
       }
-    });
+      // GPU flights don't need individual updates - the shader handles everything!
+    } else {
+      // CPU animation: update each flight individually
+      if (flights) {
+        const adjustedDelta = delta * guiControls.animationSpeed;
+        let needsMatrixUpdate = false;
 
-    // Batch update instance matrices for instanced planes only once per frame
-    if (needsMatrixUpdate && currentPlaneRenderer && !currentPlaneRenderer.isParticleRenderer) {
-      currentPlaneRenderer.forceMatrixUpdate();
+        flights.forEach((flight) => {
+          flight.update(adjustedDelta);
+          // Track if we need updates for batching
+          if (currentPlaneRenderer && !currentPlaneRenderer.isParticleRenderer) {
+            needsMatrixUpdate = true;
+          }
+        });
+
+        // Batch update instance matrices for instanced planes only once per frame
+        if (needsMatrixUpdate && currentPlaneRenderer && !currentPlaneRenderer.isParticleRenderer) {
+          currentPlaneRenderer.forceMatrixUpdate();
+        }
+      }
+
+      // Update particle planes if active
+      if (currentPlaneRenderer === particlePlanes && particlePlanes) {
+        particlePlanes.update(delta);
+      }
     }
-  }
-
-  // Update particle planes if active
-  if (currentPlaneRenderer === particlePlanes && particlePlanes) {
-    particlePlanes.update(delta);
   }
 
   // Apply batched updates for flight paths (only once per frame)
