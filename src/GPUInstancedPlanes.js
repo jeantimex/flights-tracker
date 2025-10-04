@@ -61,7 +61,8 @@ export class GPUInstancedPlanes {
         opacity: { value: 1.0 },
         useColorization: { value: 1.0 },
         waitTime: { value: 5.0 }, // Wait time at destination
-        planeOffset: { value: 8.0 } // Offset above flight path
+        planeOffset: { value: 8.0 }, // Offset above flight path
+        activeCount: { value: this.activeCount } // Number of active flights
       },
       vertexShader: `
         // Flight path attributes
@@ -81,6 +82,7 @@ export class GPUInstancedPlanes {
         uniform float earthRadius;
         uniform float waitTime;
         uniform float planeOffset;
+        uniform float activeCount;
 
         // Varyings
         varying vec2 vUv;
@@ -128,6 +130,12 @@ export class GPUInstancedPlanes {
         void main() {
           vUv = vec2(uv.x, 1.0 - uv.y);
           vPlaneType = planeType;
+
+          // Hide planes beyond active count
+          if (float(gl_InstanceID) >= activeCount) {
+            gl_Position = vec4(0.0, 0.0, 0.0, 0.0);
+            return;
+          }
 
           // Calculate animation progress with phase offset
           float animTime = (time * animationSpeed) + flightPhase;
@@ -367,7 +375,11 @@ export class GPUInstancedPlanes {
 
   setActiveCount(count) {
     this.activeCount = Math.min(count, this.maxCount);
-    // GPU handles visibility based on flight data - no need to hide instances manually
+
+    // Update the activeCount uniform to control visibility in GPU shader
+    if (this.instancedMesh && this.instancedMesh.material.uniforms) {
+      this.instancedMesh.material.uniforms.activeCount.value = this.activeCount;
+    }
   }
 
   setGlobalScale(scale) {
