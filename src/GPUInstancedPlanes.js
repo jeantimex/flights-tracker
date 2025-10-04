@@ -135,54 +135,75 @@ export class GPUInstancedPlanes {
 
         // Evaluate position along the 7-point CatmullRom curve
         vec3 evaluateFlightPath(float t, out vec3 tangent) {
-          // Convert global t (0-1) to segment and local t
-          float scaledT = t * 4.0; // 4 segments between 7 points
+          // We have 7 sample points from the original curve at [0.0, 0.1, 0.25, 0.5, 0.75, 0.9, 1.0]
+          // Convert these back to CatmullRom segments (6 segments between 7 points)
+          float scaledT = t * 6.0; // Scale to 6 segments
           int segment = int(floor(scaledT));
+          segment = min(segment, 5); // Clamp to max segment
           float localT = scaledT - float(segment);
 
           vec3 p0, p1, p2, p3;
 
+          // For CatmullRom, we need 4 points for each segment
+          // Use adjacent points with proper boundary handling
           if (segment == 0) {
+            p0 = getControlPoint(0); // Use first point as p0
+            p1 = getControlPoint(0);
+            p2 = getControlPoint(1);
+            p3 = getControlPoint(2);
+          } else if (segment == 1) {
             p0 = getControlPoint(0);
             p1 = getControlPoint(1);
             p2 = getControlPoint(2);
             p3 = getControlPoint(3);
-          } else if (segment == 1) {
+          } else if (segment == 2) {
             p0 = getControlPoint(1);
             p1 = getControlPoint(2);
             p2 = getControlPoint(3);
             p3 = getControlPoint(4);
-          } else if (segment == 2) {
+          } else if (segment == 3) {
             p0 = getControlPoint(2);
             p1 = getControlPoint(3);
             p2 = getControlPoint(4);
             p3 = getControlPoint(5);
-          } else {
+          } else if (segment == 4) {
             p0 = getControlPoint(3);
             p1 = getControlPoint(4);
             p2 = getControlPoint(5);
             p3 = getControlPoint(6);
+          } else {
+            p0 = getControlPoint(4);
+            p1 = getControlPoint(5);
+            p2 = getControlPoint(6);
+            p3 = getControlPoint(6); // Use last point as p3
           }
 
           tangent = normalize(getCatmullRomTangent(p0, p1, p2, p3, localT));
           return evaluateCatmullRom(p0, p1, p2, p3, localT);
         }
 
-        // Create rotation matrix to align plane with flight direction
-        mat4 createOrientationMatrix(vec3 forward, vec3 earthNormal) {
-          // Normalize the forward direction (tangent to flight path)
-          vec3 zAxis = normalize(forward);
+        // Create rotation matrix to align plane tangent to the curve (pitch only, no roll)
+        mat4 createOrientationMatrix(vec3 tangent, vec3 position) {
+          // Normalize the tangent (forward direction along curve)
+          vec3 forward = normalize(tangent);
 
-          // Calculate right vector (perpendicular to both forward and earth normal)
-          vec3 xAxis = normalize(cross(earthNormal, zAxis));
+          // Use a fixed "world up" vector to prevent rolling
+          // This keeps the plane level horizontally while allowing pitch up/down
+          vec3 worldUp = vec3(0.0, 1.0, 0.0);
 
-          // Calculate up vector (perpendicular to forward and right)
-          vec3 yAxis = normalize(cross(zAxis, xAxis));
+          // Create right vector perpendicular to forward and world up
+          vec3 right = normalize(cross(forward, worldUp));
 
+          // Recalculate up vector to ensure orthogonality
+          // This will be tilted based on the curve's slope but won't roll
+          vec3 up = normalize(cross(right, forward));
+
+          // Create rotation matrix with plane pitched to follow curve but no roll
+          // X-axis: right (horizontal), Y-axis: up (pitch only), Z-axis: forward
           return mat4(
-            xAxis.x, yAxis.x, zAxis.x, 0.0,
-            xAxis.y, yAxis.y, zAxis.y, 0.0,
-            xAxis.z, yAxis.z, zAxis.z, 0.0,
+            right.x, up.x, forward.x, 0.0,
+            right.y, up.y, forward.y, 0.0,
+            right.z, up.z, forward.z, 0.0,
             0.0, 0.0, 0.0, 1.0
           );
         }
@@ -225,9 +246,6 @@ export class GPUInstancedPlanes {
             tangent = normalize(getControlPoint(6) - getControlPoint(0));
           }
 
-          // Calculate earth normal at current position
-          vec3 earthNormal = normalize(currentPosition);
-
           // Lift plane to proper altitude above earth surface
           float altitude = length(currentPosition) - earthRadius;
           float minAltitude = 50.0; // Minimum altitude above earth surface
@@ -235,15 +253,15 @@ export class GPUInstancedPlanes {
             currentPosition = normalize(currentPosition) * (earthRadius + minAltitude);
           }
 
-          // Create proper orientation matrix using flight direction and earth normal
-          mat4 rotationMatrix = createOrientationMatrix(tangent, earthNormal);
+          // Create proper orientation matrix - plane slides tangent to curve
+          mat4 rotationMatrix = createOrientationMatrix(tangent, currentPosition);
 
-          // Apply 90-degree rotation to align plane model properly
-          // (assuming plane model points forward along +Z axis initially)
+          // Apply model alignment if needed (depends on how the plane model is oriented)
+          // Most plane models point forward along +Z, so we may need to rotate
           mat4 modelAlignment = mat4(
-            1.0, 0.0, 0.0, 0.0,
-            0.0, 0.0, -1.0, 0.0,
-            0.0, 1.0, 0.0, 0.0,
+            0.0, 0.0, 1.0, 0.0,   // Rotate so plane's forward points along curve
+            0.0, 1.0, 0.0, 0.0,   // Keep up vector as up
+            -1.0, 0.0, 0.0, 0.0,  // Align with curve tangent
             0.0, 0.0, 0.0, 1.0
           );
           rotationMatrix = rotationMatrix * modelAlignment;
@@ -398,11 +416,24 @@ export class GPUInstancedPlanes {
   setFlightPath(instanceId, origin, destination, curve, duration) {
     if (instanceId >= this.maxCount) return;
 
-    // Get 7 evenly spaced points along the curve
+    // For CatmullRom curves, we need to sample the actual curve points
+    // The curve actually starts at controlPoints[1] and ends at controlPoints[5]
+    // So we sample more densely in the middle section where the actual flight happens
     const points = [];
+
+    // Sample points that cover the full flight path including ramp up/down
+    const samplePoints = [
+      0.0,    // Start of curve
+      0.1,    // Early ramp up
+      0.25,   // Mid ramp up
+      0.5,    // Peak/middle
+      0.75,   // Mid ramp down
+      0.9,    // Late ramp down
+      1.0     // End of curve
+    ];
+
     for (let i = 0; i < 7; i++) {
-      const t = i / 6; // 0, 1/6, 2/6, ..., 6/6 = 1
-      points.push(curve.getPoint(t));
+      points.push(curve.getPoint(samplePoints[i]));
     }
 
     // Pack points into the vec4 attributes
