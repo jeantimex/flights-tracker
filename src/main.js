@@ -199,13 +199,15 @@ function init() {
   // Create instanced planes manager with much smaller base size (10x smaller than original)
   instancedPlanes = new InstancedPlanes(flightData.length, 10);
   instancedPlanes.addToScene(scene);
-  // Scale by 0.5 so that size=1 gives 2x smaller than the new base size
-  instancedPlanes.setGlobalScale(guiControls.planeSize * 0.5);
+  // Scale by 1.0 so that size=1 gives normal base size (2x bigger than before)
+  instancedPlanes.setGlobalScale(guiControls.planeSize * 1.0);
+  instancedPlanes.setColorization(guiControls.colorizeePlanes);
 
   // Create particle planes manager
   particlePlanes = new ParticlePlanes(flightData.length, earth.getRadius());
   particlePlanes.addToScene(scene);
-  particlePlanes.setGlobalScale(guiControls.planeSize);
+  particlePlanes.setGlobalScale(guiControls.planeSize * 2.0);
+  particlePlanes.setColorization(guiControls.colorizeePlanes);
 
   // Set initial plane renderer based on controls
   currentPlaneRenderer = guiControls.planeRenderType === "particles" ? particlePlanes : instancedPlanes;
@@ -326,8 +328,8 @@ function setupGUI() {
   const callbacks = {
     onPlaneSizeChange: (value) => {
       if (currentPlaneRenderer) {
-        // Apply 0.5 scaling factor for instanced planes to make them smaller
-        const scaleFactor = currentPlaneRenderer.isParticleRenderer ? 1.0 : 0.5;
+        // Apply 2.0 scaling factor for particle planes and 1.0 for instanced planes (2x bigger than before)
+        const scaleFactor = currentPlaneRenderer.isParticleRenderer ? 2.0 : 1.0;
         currentPlaneRenderer.setGlobalScale(value * scaleFactor);
       }
     },
@@ -389,8 +391,8 @@ function switchPlaneRenderer(renderType) {
   // Apply current settings to new renderer
   if (currentPlaneRenderer) {
     currentPlaneRenderer.setActiveCount(guiControls.flightCount);
-    // Apply appropriate scaling factor based on renderer type
-    const scaleFactor = currentPlaneRenderer.isParticleRenderer ? 1.0 : 0.5;
+    // Apply appropriate scaling factor based on renderer type (2x bigger than before)
+    const scaleFactor = currentPlaneRenderer.isParticleRenderer ? 2.0 : 1.0;
     currentPlaneRenderer.setGlobalScale(guiControls.planeSize * scaleFactor);
     currentPlaneRenderer.setColorization(guiControls.colorizeePlanes);
   }

@@ -139,6 +139,12 @@ export class Flight {
         this.isWaiting = false;
         this.waitTimer = 0;
         this.progress = 0;
+      } else {
+        // While waiting, keep the plane at the destination with current scale
+        const position = this.curve.getPointAt(1); // Stay at end of curve
+        const tangent = this.curve.getTangentAt(1).normalize();
+        const normal = position.clone().normalize();
+        this.updatePlane(position, tangent, normal);
       }
       return;
     }
@@ -203,11 +209,14 @@ export class Flight {
       quaternion.multiply(additionalRotation);
 
       // Update the instanced plane with lifted position (without triggering update)
+      // Use instance ID to determine plane type for variety (8 different plane types)
+      const planeType = this.instanceId % 8;
       this.planeRenderer.setInstanceTransform(
         this.instanceId,
         liftedPosition,
         quaternion,
-        this.planeRenderer.globalScale || 1,
+        1, // Base scale - globalScale is applied internally in setInstanceTransform
+        planeType, // Plane type for texture and color selection
         false // Skip immediate update for batching
       );
     }
