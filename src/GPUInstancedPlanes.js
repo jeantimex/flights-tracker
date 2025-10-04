@@ -17,9 +17,13 @@ export class GPUInstancedPlanes {
     this.globalScale = 1.0;
 
     // Flight path data arrays (will be stored as vertex attributes)
-    this.flightOrigins = new Float32Array(maxCount * 3);       // Origin positions
-    this.flightDestinations = new Float32Array(maxCount * 3);  // Destination positions
-    this.flightControlPoints = new Float32Array(maxCount * 12); // 4 control points × 3 coords
+    // Pack 7 control points into 3 vec4 attributes (21 floats = 5.25 vec4, rounded up to 6)
+    this.flightControlPack1 = new Float32Array(maxCount * 4); // Points 0,1 (x,y,z of point 0, x of point 1)
+    this.flightControlPack2 = new Float32Array(maxCount * 4); // Points 1,2 (y,z of point 1, x,y of point 2)
+    this.flightControlPack3 = new Float32Array(maxCount * 4); // Points 2,3 (z of point 2, x,y,z of point 3)
+    this.flightControlPack4 = new Float32Array(maxCount * 4); // Points 4,5 (x,y,z of point 4, x of point 5)
+    this.flightControlPack5 = new Float32Array(maxCount * 4); // Points 5,6 (y,z of point 5, x,y of point 6)
+    this.flightControlPack6 = new Float32Array(maxCount * 4); // Point 6 + metadata (z of point 6, duration, phase, planeType)
     this.flightDurations = new Float32Array(maxCount);         // Flight durations
     this.flightPhases = new Float32Array(maxCount);            // Phase offsets for variety
     this.planeTypes = new Float32Array(maxCount);             // Plane type for each instance
@@ -65,15 +69,13 @@ export class GPUInstancedPlanes {
         activeCount: { value: this.activeCount } // Number of active flights
       },
       vertexShader: `
-        // Flight path attributes
-        attribute vec3 flightOrigin;
-        attribute vec3 flightDestination;
-        attribute vec3 flightControlPoint1;
-        attribute vec3 flightControlPoint2;
-        attribute vec3 flightControlPoint3;
-        attribute float flightDuration;
-        attribute float flightPhase;
-        attribute float planeType;
+        // Packed flight path attributes - 7 control points packed into 6 vec4s
+        attribute vec4 flightControlPack1; // (p0.x, p0.y, p0.z, p1.x)
+        attribute vec4 flightControlPack2; // (p1.y, p1.z, p2.x, p2.y)
+        attribute vec4 flightControlPack3; // (p2.z, p3.x, p3.y, p3.z)
+        attribute vec4 flightControlPack4; // (p4.x, p4.y, p4.z, p5.x)
+        attribute vec4 flightControlPack5; // (p5.y, p5.z, p6.x, p6.y)
+        attribute vec4 flightControlPack6; // (p6.z, duration, phase, planeType)
 
         // Uniforms
         uniform float time;
@@ -88,29 +90,82 @@ export class GPUInstancedPlanes {
         varying vec2 vUv;
         varying float vPlaneType;
 
-        // Cubic Bézier curve evaluation
-        vec3 evaluateBezier(vec3 p0, vec3 p1, vec3 p2, vec3 p3, float t) {
-          float invT = 1.0 - t;
-          float invT2 = invT * invT;
-          float invT3 = invT2 * invT;
+        // CatmullRom curve evaluation
+        vec3 evaluateCatmullRom(vec3 p0, vec3 p1, vec3 p2, vec3 p3, float t) {
           float t2 = t * t;
           float t3 = t2 * t;
 
-          return invT3 * p0 +
-                 3.0 * invT2 * t * p1 +
-                 3.0 * invT * t2 * p2 +
-                 t3 * p3;
+          return 0.5 * (
+            (2.0 * p1) +
+            (-p0 + p2) * t +
+            (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) * t2 +
+            (-p0 + 3.0 * p1 - 3.0 * p2 + p3) * t3
+          );
         }
 
-        // Get tangent vector for rotation
-        vec3 getBezierTangent(vec3 p0, vec3 p1, vec3 p2, vec3 p3, float t) {
-          float invT = 1.0 - t;
-          float invT2 = invT * invT;
+        // Get tangent vector for CatmullRom curve
+        vec3 getCatmullRomTangent(vec3 p0, vec3 p1, vec3 p2, vec3 p3, float t) {
           float t2 = t * t;
 
-          return 3.0 * invT2 * (p1 - p0) +
-                 6.0 * invT * t * (p2 - p1) +
-                 3.0 * t2 * (p3 - p2);
+          return 0.5 * (
+            (-p0 + p2) +
+            2.0 * (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) * t +
+            3.0 * (-p0 + 3.0 * p1 - 3.0 * p2 + p3) * t2
+          );
+        }
+
+        // Unpack control points from packed attributes
+        vec3 getControlPoint(int index) {
+          if (index == 0) {
+            return vec3(flightControlPack1.x, flightControlPack1.y, flightControlPack1.z);
+          } else if (index == 1) {
+            return vec3(flightControlPack1.w, flightControlPack2.x, flightControlPack2.y);
+          } else if (index == 2) {
+            return vec3(flightControlPack2.z, flightControlPack2.w, flightControlPack3.x);
+          } else if (index == 3) {
+            return vec3(flightControlPack3.y, flightControlPack3.z, flightControlPack3.w);
+          } else if (index == 4) {
+            return vec3(flightControlPack4.x, flightControlPack4.y, flightControlPack4.z);
+          } else if (index == 5) {
+            return vec3(flightControlPack4.w, flightControlPack5.x, flightControlPack5.y);
+          } else {
+            return vec3(flightControlPack5.z, flightControlPack5.w, flightControlPack6.x);
+          }
+        }
+
+        // Evaluate position along the 7-point CatmullRom curve
+        vec3 evaluateFlightPath(float t, out vec3 tangent) {
+          // Convert global t (0-1) to segment and local t
+          float scaledT = t * 4.0; // 4 segments between 7 points
+          int segment = int(floor(scaledT));
+          float localT = scaledT - float(segment);
+
+          vec3 p0, p1, p2, p3;
+
+          if (segment == 0) {
+            p0 = getControlPoint(0);
+            p1 = getControlPoint(1);
+            p2 = getControlPoint(2);
+            p3 = getControlPoint(3);
+          } else if (segment == 1) {
+            p0 = getControlPoint(1);
+            p1 = getControlPoint(2);
+            p2 = getControlPoint(3);
+            p3 = getControlPoint(4);
+          } else if (segment == 2) {
+            p0 = getControlPoint(2);
+            p1 = getControlPoint(3);
+            p2 = getControlPoint(4);
+            p3 = getControlPoint(5);
+          } else {
+            p0 = getControlPoint(3);
+            p1 = getControlPoint(4);
+            p2 = getControlPoint(5);
+            p3 = getControlPoint(6);
+          }
+
+          tangent = normalize(getCatmullRomTangent(p0, p1, p2, p3, localT));
+          return evaluateCatmullRom(p0, p1, p2, p3, localT);
         }
 
         // Create rotation matrix to align plane with flight direction
@@ -134,13 +189,17 @@ export class GPUInstancedPlanes {
 
         void main() {
           vUv = vec2(uv.x, 1.0 - uv.y);
-          vPlaneType = planeType;
+          vPlaneType = flightControlPack6.w;
 
           // Hide planes beyond active count
           if (float(gl_InstanceID) >= activeCount) {
             gl_Position = vec4(0.0, 0.0, 0.0, 0.0);
             return;
           }
+
+          // Extract duration and phase from packed attributes
+          float flightDuration = flightControlPack6.y;
+          float flightPhase = flightControlPack6.z;
 
           // Calculate animation progress with phase offset
           float animTime = (time * animationSpeed) + flightPhase;
@@ -151,35 +210,19 @@ export class GPUInstancedPlanes {
           vec3 tangent;
 
           if (normalizedTime < flightDuration) {
-            // Forward journey - interpolate along Bézier curve
+            // Forward journey - interpolate along CatmullRom curve
             float t = normalizedTime / flightDuration;
-
-            // Construct Bézier curve control points (origin to destination)
-            vec3 p0 = flightOrigin;
-            vec3 p1 = flightControlPoint1.xyz;
-            vec3 p2 = flightControlPoint2.xyz;
-            vec3 p3 = flightDestination;
-
-            // Get position and tangent from curve
-            currentPosition = evaluateBezier(p0, p1, p2, p3, t);
-            tangent = normalize(getBezierTangent(p0, p1, p2, p3, t));
+            currentPosition = evaluateFlightPath(t, tangent);
           } else if (normalizedTime < (flightDuration * 2.0)) {
-            // Return journey - interpolate along reversed Bézier curve
+            // Return journey - interpolate along reversed curve
             float t = (normalizedTime - flightDuration) / flightDuration;
-
-            // Construct reversed Bézier curve control points (destination to origin)
-            vec3 p0 = flightDestination;
-            vec3 p1 = flightControlPoint2.xyz;
-            vec3 p2 = flightControlPoint1.xyz;
-            vec3 p3 = flightOrigin;
-
-            // Get position and tangent from curve
-            currentPosition = evaluateBezier(p0, p1, p2, p3, t);
-            tangent = normalize(getBezierTangent(p0, p1, p2, p3, t));
+            float reverseT = 1.0 - t; // Reverse the parameter
+            currentPosition = evaluateFlightPath(reverseT, tangent);
+            tangent = -tangent; // Reverse direction for return journey
           } else {
             // Waiting phase - stay at origin before next cycle
-            currentPosition = flightOrigin;
-            tangent = normalize(flightDestination - flightOrigin);
+            currentPosition = getControlPoint(0);
+            tangent = normalize(getControlPoint(6) - getControlPoint(0));
           }
 
           // Calculate earth normal at current position
@@ -282,44 +325,32 @@ export class GPUInstancedPlanes {
       this.maxCount
     );
 
-    // Add flight path attributes
+    // Add packed flight path attributes
     geometry.setAttribute(
-      'flightOrigin',
-      new THREE.InstancedBufferAttribute(this.flightOrigins, 3)
+      'flightControlPack1',
+      new THREE.InstancedBufferAttribute(this.flightControlPack1, 4)
     );
     geometry.setAttribute(
-      'flightDestination',
-      new THREE.InstancedBufferAttribute(this.flightDestinations, 3)
-    );
-    // Create separate arrays for each control point
-    this.controlPoint1 = new Float32Array(this.maxCount * 3);
-    this.controlPoint2 = new Float32Array(this.maxCount * 3);
-    this.controlPoint3 = new Float32Array(this.maxCount * 3);
-
-    geometry.setAttribute(
-      'flightControlPoint1',
-      new THREE.InstancedBufferAttribute(this.controlPoint1, 3)
+      'flightControlPack2',
+      new THREE.InstancedBufferAttribute(this.flightControlPack2, 4)
     );
     geometry.setAttribute(
-      'flightControlPoint2',
-      new THREE.InstancedBufferAttribute(this.controlPoint2, 3)
+      'flightControlPack3',
+      new THREE.InstancedBufferAttribute(this.flightControlPack3, 4)
     );
     geometry.setAttribute(
-      'flightControlPoint3',
-      new THREE.InstancedBufferAttribute(this.controlPoint3, 3)
+      'flightControlPack4',
+      new THREE.InstancedBufferAttribute(this.flightControlPack4, 4)
     );
     geometry.setAttribute(
-      'flightDuration',
-      new THREE.InstancedBufferAttribute(this.flightDurations, 1)
+      'flightControlPack5',
+      new THREE.InstancedBufferAttribute(this.flightControlPack5, 4)
     );
     geometry.setAttribute(
-      'flightPhase',
-      new THREE.InstancedBufferAttribute(this.flightPhases, 1)
+      'flightControlPack6',
+      new THREE.InstancedBufferAttribute(this.flightControlPack6, 4)
     );
-    geometry.setAttribute(
-      'planeType',
-      new THREE.InstancedBufferAttribute(this.planeTypes, 1)
-    );
+    // Note: flightDuration, flightPhase, and planeType are now packed into flightControlPack6
 
     // Initialize all instances as inactive (will be set by flight data)
     this.initializeInstances();
@@ -328,63 +359,88 @@ export class GPUInstancedPlanes {
   initializeInstances() {
     // Set default values for all instances
     for (let i = 0; i < this.maxCount; i++) {
-      // Set to origin initially (inactive)
-      this.flightOrigins[i * 3] = 0;
-      this.flightOrigins[i * 3 + 1] = 0;
-      this.flightOrigins[i * 3 + 2] = 0;
+      // Initialize all packed attributes to zero
+      this.flightControlPack1[i * 4] = 0; // p0.x
+      this.flightControlPack1[i * 4 + 1] = 0; // p0.y
+      this.flightControlPack1[i * 4 + 2] = 0; // p0.z
+      this.flightControlPack1[i * 4 + 3] = 0; // p1.x
 
-      this.flightDestinations[i * 3] = 0;
-      this.flightDestinations[i * 3 + 1] = 0;
-      this.flightDestinations[i * 3 + 2] = 0;
+      this.flightControlPack2[i * 4] = 0; // p1.y
+      this.flightControlPack2[i * 4 + 1] = 0; // p1.z
+      this.flightControlPack2[i * 4 + 2] = 0; // p2.x
+      this.flightControlPack2[i * 4 + 3] = 0; // p2.y
 
-      // Control points (will create a straight line initially)
-      for (let j = 0; j < 12; j++) {
-        this.flightControlPoints[i * 12 + j] = 0;
-      }
+      this.flightControlPack3[i * 4] = 0; // p2.z
+      this.flightControlPack3[i * 4 + 1] = 0; // p3.x
+      this.flightControlPack3[i * 4 + 2] = 0; // p3.y
+      this.flightControlPack3[i * 4 + 3] = 0; // p3.z
 
-      this.flightDurations[i] = 1.0;
-      this.flightPhases[i] = Math.random() * 10.0; // Random start phase
-      this.planeTypes[i] = Math.floor(Math.random() * 8);
+      this.flightControlPack4[i * 4] = 0; // p4.x
+      this.flightControlPack4[i * 4 + 1] = 0; // p4.y
+      this.flightControlPack4[i * 4 + 2] = 0; // p4.z
+      this.flightControlPack4[i * 4 + 3] = 0; // p5.x
+
+      this.flightControlPack5[i * 4] = 0; // p5.y
+      this.flightControlPack5[i * 4 + 1] = 0; // p5.z
+      this.flightControlPack5[i * 4 + 2] = 0; // p6.x
+      this.flightControlPack5[i * 4 + 3] = 0; // p6.y
+
+      this.flightControlPack6[i * 4] = 0; // p6.z
+      this.flightControlPack6[i * 4 + 1] = 1.0; // duration
+      this.flightControlPack6[i * 4 + 2] = Math.random() * 10.0; // phase
+      this.flightControlPack6[i * 4 + 3] = Math.floor(Math.random() * 8); // planeType
     }
 
     this.markAttributesNeedUpdate();
   }
 
   // Set flight path data for a specific instance
-  setFlightPath(instanceId, origin, destination, controlPoints, duration) {
+  setFlightPath(instanceId, origin, destination, curve, duration) {
     if (instanceId >= this.maxCount) return;
 
-    // Set origin
-    this.flightOrigins[instanceId * 3] = origin.x;
-    this.flightOrigins[instanceId * 3 + 1] = origin.y;
-    this.flightOrigins[instanceId * 3 + 2] = origin.z;
-
-    // Set destination
-    this.flightDestinations[instanceId * 3] = destination.x;
-    this.flightDestinations[instanceId * 3 + 1] = destination.y;
-    this.flightDestinations[instanceId * 3 + 2] = destination.z;
-
-    // Set control points (separate arrays for each control point)
-    if (controlPoints.length >= 4) {
-      // Control point 1
-      this.controlPoint1[instanceId * 3] = controlPoints[1].x;
-      this.controlPoint1[instanceId * 3 + 1] = controlPoints[1].y;
-      this.controlPoint1[instanceId * 3 + 2] = controlPoints[1].z;
-
-      // Control point 2
-      this.controlPoint2[instanceId * 3] = controlPoints[2].x;
-      this.controlPoint2[instanceId * 3 + 1] = controlPoints[2].y;
-      this.controlPoint2[instanceId * 3 + 2] = controlPoints[2].z;
-
-      // Control point 3 (not used in 4-point Bézier, but included for completeness)
-      this.controlPoint3[instanceId * 3] = controlPoints[3].x;
-      this.controlPoint3[instanceId * 3 + 1] = controlPoints[3].y;
-      this.controlPoint3[instanceId * 3 + 2] = controlPoints[3].z;
+    // Get 7 evenly spaced points along the curve
+    const points = [];
+    for (let i = 0; i < 7; i++) {
+      const t = i / 6; // 0, 1/6, 2/6, ..., 6/6 = 1
+      points.push(curve.getPoint(t));
     }
 
-    // Set duration and plane type
-    this.flightDurations[instanceId] = duration;
-    this.planeTypes[instanceId] = instanceId % 8;
+    // Pack points into the vec4 attributes
+    // Pack 1: (p0.x, p0.y, p0.z, p1.x)
+    this.flightControlPack1[instanceId * 4] = points[0].x;
+    this.flightControlPack1[instanceId * 4 + 1] = points[0].y;
+    this.flightControlPack1[instanceId * 4 + 2] = points[0].z;
+    this.flightControlPack1[instanceId * 4 + 3] = points[1].x;
+
+    // Pack 2: (p1.y, p1.z, p2.x, p2.y)
+    this.flightControlPack2[instanceId * 4] = points[1].y;
+    this.flightControlPack2[instanceId * 4 + 1] = points[1].z;
+    this.flightControlPack2[instanceId * 4 + 2] = points[2].x;
+    this.flightControlPack2[instanceId * 4 + 3] = points[2].y;
+
+    // Pack 3: (p2.z, p3.x, p3.y, p3.z)
+    this.flightControlPack3[instanceId * 4] = points[2].z;
+    this.flightControlPack3[instanceId * 4 + 1] = points[3].x;
+    this.flightControlPack3[instanceId * 4 + 2] = points[3].y;
+    this.flightControlPack3[instanceId * 4 + 3] = points[3].z;
+
+    // Pack 4: (p4.x, p4.y, p4.z, p5.x)
+    this.flightControlPack4[instanceId * 4] = points[4].x;
+    this.flightControlPack4[instanceId * 4 + 1] = points[4].y;
+    this.flightControlPack4[instanceId * 4 + 2] = points[4].z;
+    this.flightControlPack4[instanceId * 4 + 3] = points[5].x;
+
+    // Pack 5: (p5.y, p5.z, p6.x, p6.y)
+    this.flightControlPack5[instanceId * 4] = points[5].y;
+    this.flightControlPack5[instanceId * 4 + 1] = points[5].z;
+    this.flightControlPack5[instanceId * 4 + 2] = points[6].x;
+    this.flightControlPack5[instanceId * 4 + 3] = points[6].y;
+
+    // Pack 6: (p6.z, duration, phase, planeType)
+    this.flightControlPack6[instanceId * 4] = points[6].z;
+    this.flightControlPack6[instanceId * 4 + 1] = duration;
+    this.flightControlPack6[instanceId * 4 + 2] = Math.random() * 10.0; // phase
+    this.flightControlPack6[instanceId * 4 + 3] = instanceId % 8; // planeType
   }
 
   // Update animation time (called every frame)
@@ -433,14 +489,12 @@ export class GPUInstancedPlanes {
     if (!this.instancedMesh) return;
 
     const geometry = this.instancedMesh.geometry;
-    if (geometry.attributes.flightOrigin) geometry.attributes.flightOrigin.needsUpdate = true;
-    if (geometry.attributes.flightDestination) geometry.attributes.flightDestination.needsUpdate = true;
-    if (geometry.attributes.flightControlPoint1) geometry.attributes.flightControlPoint1.needsUpdate = true;
-    if (geometry.attributes.flightControlPoint2) geometry.attributes.flightControlPoint2.needsUpdate = true;
-    if (geometry.attributes.flightControlPoint3) geometry.attributes.flightControlPoint3.needsUpdate = true;
-    if (geometry.attributes.flightDuration) geometry.attributes.flightDuration.needsUpdate = true;
-    if (geometry.attributes.flightPhase) geometry.attributes.flightPhase.needsUpdate = true;
-    if (geometry.attributes.planeType) geometry.attributes.planeType.needsUpdate = true;
+    if (geometry.attributes.flightControlPack1) geometry.attributes.flightControlPack1.needsUpdate = true;
+    if (geometry.attributes.flightControlPack2) geometry.attributes.flightControlPack2.needsUpdate = true;
+    if (geometry.attributes.flightControlPack3) geometry.attributes.flightControlPack3.needsUpdate = true;
+    if (geometry.attributes.flightControlPack4) geometry.attributes.flightControlPack4.needsUpdate = true;
+    if (geometry.attributes.flightControlPack5) geometry.attributes.flightControlPack5.needsUpdate = true;
+    if (geometry.attributes.flightControlPack6) geometry.attributes.flightControlPack6.needsUpdate = true;
   }
 
   addToScene(scene) {

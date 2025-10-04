@@ -84,14 +84,19 @@ export class GPUFlight {
       .normalize()
       .multiplyScalar(this.earth.getRadius() + cruiseAltitude * 0.4);
 
-    // Create simplified Bézier curve with 4 control points for GPU
-    // We'll use a 4-point cubic Bézier: start -> climb -> cruise -> end
+    // Create unified control points for both GPU and visualization
     this.controlPoints = [
-      startSurface,          // P0: Start
-      climbPoint2,           // P1: Climb peak
-      descentPoint1,         // P2: Descent start
-      endSurface             // P3: End
+      startSurface,
+      climbPoint1,
+      climbPoint2,
+      cruisePeak,
+      descentPoint1,
+      descentPoint2,
+      endSurface
     ];
+
+    // Create the same curve for both GPU and visualization
+    this.curve = new THREE.CatmullRomCurve3(this.controlPoints);
 
     // Calculate duration based on path length and speed
     this.calculateDuration();
@@ -101,34 +106,19 @@ export class GPUFlight {
 
     // Add to merged flight paths if needed
     if (this.mergedFlightPaths) {
-      // Create Three.js curve for flight path visualization
-      const curve = new THREE.CatmullRomCurve3([
-        startSurface,
-        climbPoint1,
-        climbPoint2,
-        cruisePeak,
-        descentPoint1,
-        descentPoint2,
-        endSurface
-      ]);
+      // Use the same curve for visualization
 
       this.mergedFlightPaths.addFlightPath(
         this.instanceId,
-        curve,
+        this.curve,
         this.flightOptions
       );
     }
   }
 
   calculateDuration() {
-    // Approximate path length using control points
-    let pathLength = 0;
-    for (let i = 0; i < this.controlPoints.length - 1; i++) {
-      pathLength += this.controlPoints[i].distanceTo(this.controlPoints[i + 1]);
-    }
-
-    // Duration = distance / speed
-    this.duration = pathLength / this.speed;
+    // Use the actual curve length for accurate duration
+    this.duration = this.curve.getLength() / this.speed;
   }
 
   updateGPURenderer() {
@@ -138,8 +128,8 @@ export class GPUFlight {
     this.gpuPlaneRenderer.setFlightPath(
       this.instanceId,
       this.controlPoints[0], // Origin
-      this.controlPoints[3], // Destination
-      this.controlPoints,    // All control points
+      this.controlPoints[this.controlPoints.length - 1], // Destination
+      this.curve,            // Use the same curve object
       this.duration
     );
 
