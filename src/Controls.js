@@ -11,7 +11,7 @@ export class Controls {
     this.guiControls = {
       planeSize: 5.0,
       animationSpeed: 0.3,
-      flightCount: 3500,
+      flightCount: 1,
       dayNightEffect: true,
       atmosphereEffect: true,
       showFlightPaths: true,

@@ -6,7 +6,7 @@ import { createSVGTexture } from "./Utils.js";
  * All animation calculations happen in the vertex shader for maximum performance
  */
 export class GPUInstancedPlanes {
-  constructor(maxCount = 35000, size = 100, earthRadius = 3000) {
+  constructor(maxCount = 35000, size = 1000, earthRadius = 3000) {
     this.maxCount = maxCount;
     this.size = size;
     this.earthRadius = earthRadius;
@@ -113,11 +113,16 @@ export class GPUInstancedPlanes {
                  3.0 * t2 * (p3 - p2);
         }
 
-        // Create rotation matrix from direction vector
-        mat4 lookAtMatrix(vec3 eye, vec3 target, vec3 up) {
-          vec3 zAxis = normalize(target - eye);
-          vec3 xAxis = normalize(cross(up, zAxis));
-          vec3 yAxis = cross(zAxis, xAxis);
+        // Create rotation matrix to align plane with flight direction
+        mat4 createOrientationMatrix(vec3 forward, vec3 earthNormal) {
+          // Normalize the forward direction (tangent to flight path)
+          vec3 zAxis = normalize(forward);
+
+          // Calculate right vector (perpendicular to both forward and earth normal)
+          vec3 xAxis = normalize(cross(earthNormal, zAxis));
+
+          // Calculate up vector (perpendicular to forward and right)
+          vec3 yAxis = normalize(cross(zAxis, xAxis));
 
           return mat4(
             xAxis.x, yAxis.x, zAxis.x, 0.0,
@@ -139,17 +144,17 @@ export class GPUInstancedPlanes {
 
           // Calculate animation progress with phase offset
           float animTime = (time * animationSpeed) + flightPhase;
-          float totalCycleTime = flightDuration + waitTime;
+          float totalCycleTime = (flightDuration * 2.0) + waitTime; // Double duration for round trip
           float normalizedTime = mod(animTime, totalCycleTime);
 
           vec3 currentPosition;
           vec3 tangent;
 
           if (normalizedTime < flightDuration) {
-            // Flying phase - interpolate along Bézier curve
+            // Forward journey - interpolate along Bézier curve
             float t = normalizedTime / flightDuration;
 
-            // Construct Bézier curve control points
+            // Construct Bézier curve control points (origin to destination)
             vec3 p0 = flightOrigin;
             vec3 p1 = flightControlPoint1.xyz;
             vec3 p2 = flightControlPoint2.xyz;
@@ -158,30 +163,47 @@ export class GPUInstancedPlanes {
             // Get position and tangent from curve
             currentPosition = evaluateBezier(p0, p1, p2, p3, t);
             tangent = normalize(getBezierTangent(p0, p1, p2, p3, t));
+          } else if (normalizedTime < (flightDuration * 2.0)) {
+            // Return journey - interpolate along reversed Bézier curve
+            float t = (normalizedTime - flightDuration) / flightDuration;
+
+            // Construct reversed Bézier curve control points (destination to origin)
+            vec3 p0 = flightDestination;
+            vec3 p1 = flightControlPoint2.xyz;
+            vec3 p2 = flightControlPoint1.xyz;
+            vec3 p3 = flightOrigin;
+
+            // Get position and tangent from curve
+            currentPosition = evaluateBezier(p0, p1, p2, p3, t);
+            tangent = normalize(getBezierTangent(p0, p1, p2, p3, t));
           } else {
-            // Waiting phase - stay at destination
-            currentPosition = flightDestination;
+            // Waiting phase - stay at origin before next cycle
+            currentPosition = flightOrigin;
             tangent = normalize(flightDestination - flightOrigin);
           }
 
-          // Lift plane above path
-          vec3 normal = normalize(currentPosition);
-          currentPosition += normal * planeOffset;
+          // Calculate earth normal at current position
+          vec3 earthNormal = normalize(currentPosition);
 
-          // Calculate rotation matrix
-          vec3 up = cross(normal, tangent);
-          up = normalize(up);
-          mat4 rotationMatrix = lookAtMatrix(vec3(0.0), tangent, up);
+          // Lift plane to proper altitude above earth surface
+          float altitude = length(currentPosition) - earthRadius;
+          float minAltitude = 50.0; // Minimum altitude above earth surface
+          if (altitude < minAltitude) {
+            currentPosition = normalize(currentPosition) * (earthRadius + minAltitude);
+          }
 
-          // Apply additional rotation for proper plane orientation
-          float additionalRot = radians(-90.0);
-          mat4 additionalRotation = mat4(
-            cos(additionalRot), -sin(additionalRot), 0.0, 0.0,
-            sin(additionalRot), cos(additionalRot), 0.0, 0.0,
-            0.0, 0.0, 1.0, 0.0,
+          // Create proper orientation matrix using flight direction and earth normal
+          mat4 rotationMatrix = createOrientationMatrix(tangent, earthNormal);
+
+          // Apply 90-degree rotation to align plane model properly
+          // (assuming plane model points forward along +Z axis initially)
+          mat4 modelAlignment = mat4(
+            1.0, 0.0, 0.0, 0.0,
+            0.0, 0.0, -1.0, 0.0,
+            0.0, 1.0, 0.0, 0.0,
             0.0, 0.0, 0.0, 1.0
           );
-          rotationMatrix = rotationMatrix * additionalRotation;
+          rotationMatrix = rotationMatrix * modelAlignment;
 
           // Apply scaling
           vec3 scaledPosition = position * globalScale;
