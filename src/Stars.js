@@ -71,7 +71,6 @@ export class Stars {
     addToScene(scene) {
         if (this.mesh) {
             scene.add(this.mesh);
-            // console.log('Stars added to scene with', this.starCount, 'stars');
         }
     }
 
