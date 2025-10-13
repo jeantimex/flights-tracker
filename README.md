@@ -130,7 +130,6 @@ npm run build
 ### Performance Tuning
 - Adjust `maxFlightCount` in Controls.js for different datasets
 - Modify `instancedPlanes` count for memory optimization
-- Configure `pointsPerPath` in MergedFlightPaths.js for path detail
 
 ## 📊 Performance Metrics
 

@@ -5,8 +5,7 @@ export class Flight {
     flightOptions,
     earth,
     planeRenderer,
-    instanceId,
-    mergedFlightPaths
+    instanceId
   ) {
     this.flightOptions = flightOptions;
     this.departure = flightOptions.departure;
@@ -20,7 +19,6 @@ export class Flight {
     this.planeRenderer = planeRenderer;
     this.instancedPlanes = planeRenderer; // Keep backward compatibility
     this.instanceId = instanceId;
-    this.mergedFlightPaths = mergedFlightPaths;
     this.curve = null;
     this.progress = 0;
     this.speed = flightOptions.speed || 500; // use speed from data or default to 500
@@ -98,15 +96,6 @@ export class Flight {
       endSurface
     ]);
 
-    // Add this flight path to the merged geometry
-    if (this.mergedFlightPaths) {
-      this.mergedFlightPaths.addFlightPath(
-        this.instanceId,
-        this.curve,
-        this.flightOptions
-      );
-    }
-
     // Calculate duration based on path length and constant speed
     this.calculateDuration();
   }
@@ -122,8 +111,7 @@ export class Flight {
   }
 
   addToScene(scene) {
-    // Flight paths are now handled by MergedFlightPaths
-    // Planes are handled by InstancedPlanes
+    // Planes are handled by InstancedPlanes or ParticlePlanes
     // Nothing to add to scene individually
   }
 

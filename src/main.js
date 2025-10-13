@@ -5,7 +5,6 @@ import { Earth } from "./Earth.js";
 import { Flight } from "./Flight.js";
 import { InstancedPlanes } from "./InstancedPlanes.js";
 import { ParticlePlanes } from "./ParticlePlanes.js";
-import { MergedFlightPaths } from "./MergedFlightPaths.js";
 import { Stars } from "./Stars.js";
 import { Controls } from "./Controls.js";
 import {
@@ -27,7 +26,6 @@ let scene,
   instancedPlanes,
   particlePlanes,
   currentPlaneRenderer,
-  mergedFlightPaths,
   stats,
   stars,
   ambientLight,
@@ -221,19 +219,13 @@ function init() {
     particlePlanes.getMesh().visible = false;
   }
 
-  // Create merged flight paths manager
-  mergedFlightPaths = new MergedFlightPaths();
-  mergedFlightPaths.initialize(flightData.length);
-  mergedFlightPaths.addToScene(scene);
-
   // Create all flights from data with instance IDs
   const allFlights = flightData.map((flightOptions, index) => {
     const flight = new Flight(
       flightOptions,
       earth,
       currentPlaneRenderer,
-      index,
-      mergedFlightPaths
+      index
     );
     return flight;
   });
@@ -246,7 +238,6 @@ function init() {
 
   // Set active count for current plane renderer and flight paths
   currentPlaneRenderer.setActiveCount(guiControls.flightCount);
-  mergedFlightPaths.setVisibleFlightCount(guiControls.flightCount);
 
   // Store all flights for later use
   window.allFlights = allFlights;
@@ -335,7 +326,6 @@ function setupGUI() {
     },
     onPlaneRenderTypeChange: switchPlaneRenderer,
     onFlightCountChange: updateFlightCount,
-    onShowFlightPathsChange: toggleFlightPaths,
     onShowPlanesChange: togglePlanes,
     onColorizePlanesChange: togglePlaneColorization,
     onDayNightEffectChange: toggleDayNightEffect,
@@ -407,10 +397,6 @@ function updateFlightCount(count) {
     currentPlaneRenderer.setActiveCount(count);
   }
 
-  // Update merged flight paths visible count
-  if (mergedFlightPaths) {
-    mergedFlightPaths.setVisibleFlightCount(count);
-  }
 }
 
 function toggleDayNightEffect(enabled) {
@@ -434,12 +420,6 @@ function updateLighting() {
 function toggleAtmosphereEffect(enabled) {
   if (earth && earth.atmosphere) {
     earth.atmosphere.mesh.visible = enabled;
-  }
-}
-
-function toggleFlightPaths(enabled) {
-  if (mergedFlightPaths) {
-    mergedFlightPaths.setCurvesVisible(enabled);
   }
 }
 
@@ -555,10 +535,6 @@ function animate() {
   }
 
   // Apply batched updates for flight paths (only once per frame)
-  if (mergedFlightPaths) {
-    mergedFlightPaths.applyBatchedUpdates();
-  }
-
   // Update sun position every frame if real-time sun is enabled
   updateSunPosition();
 

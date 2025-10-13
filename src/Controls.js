@@ -14,7 +14,6 @@ export class Controls {
       flightCount: 3500,
       dayNightEffect: true,
       atmosphereEffect: true,
-      showFlightPaths: true,
       showPlanes: true,
       realTimeSun: true,
       simulatedTime: getCurrentUtcTimeHours(),
@@ -98,15 +97,6 @@ export class Controls {
       .onChange((value) => {
         if (this.callbacks.onFlightCountChange) {
           this.callbacks.onFlightCountChange(value);
-        }
-      });
-
-    flightFolder
-      .add(this.guiControls, "showFlightPaths")
-      .name("Show Paths")
-      .onChange((value) => {
-        if (this.callbacks.onShowFlightPathsChange) {
-          this.callbacks.onShowFlightPathsChange(value);
         }
       });
 
