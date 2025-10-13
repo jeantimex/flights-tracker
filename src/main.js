@@ -2,9 +2,6 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import Stats from "stats.js";
 import { Earth } from "./Earth.js";
-import { Flight } from "./Flight.js";
-import { InstancedPlanes } from "./InstancedPlanes.js";
-import { ParticlePlanes } from "./ParticlePlanes.js";
 import { Stars } from "./Stars.js";
 import { Controls } from "./Controls.js";
 import {
@@ -14,18 +11,13 @@ import {
   animateCameraToPosition,
   vector3ToLatLng
 } from "./Utils.js";
-import { flights as flightData } from "./Data.js";
 
 let scene,
   camera,
   renderer,
   controls,
   earth,
-  flights,
   guiControls,
-  instancedPlanes,
-  particlePlanes,
-  currentPlaneRenderer,
   stats,
   stars,
   ambientLight,
@@ -194,54 +186,6 @@ function init() {
   });
   earth.addToScene(scene);
 
-  // Create instanced planes manager with much smaller base size (10x smaller than original)
-  instancedPlanes = new InstancedPlanes(flightData.length, 10);
-  instancedPlanes.addToScene(scene);
-  // Scale by 1.0 so that size=1 gives normal base size (2x bigger than before)
-  instancedPlanes.setGlobalScale(guiControls.planeSize * 1.0);
-  instancedPlanes.setColorization(guiControls.colorizeePlanes);
-
-  // Create particle planes manager
-  particlePlanes = new ParticlePlanes(flightData.length, earth.getRadius());
-  particlePlanes.addToScene(scene);
-  particlePlanes.setGlobalScale(guiControls.planeSize * 2.0);
-  particlePlanes.setColorization(guiControls.colorizeePlanes);
-
-  // Set initial plane renderer based on controls
-  currentPlaneRenderer = guiControls.planeRenderType === "particles" ? particlePlanes : instancedPlanes;
-
-  // Hide the non-active renderer
-  if (guiControls.planeRenderType === "particles") {
-    instancedPlanes.getMesh().visible = false;
-    particlePlanes.getMesh().visible = true;
-  } else {
-    instancedPlanes.getMesh().visible = true;
-    particlePlanes.getMesh().visible = false;
-  }
-
-  // Create all flights from data with instance IDs
-  const allFlights = flightData.map((flightOptions, index) => {
-    const flight = new Flight(
-      flightOptions,
-      earth,
-      currentPlaneRenderer,
-      index
-    );
-    return flight;
-  });
-
-  // Show only the initial number of flights
-  flights = allFlights.slice(0, guiControls.flightCount);
-  flights.forEach((flight) => {
-    flight.addToScene(scene);
-  });
-
-  // Set active count for current plane renderer and flight paths
-  currentPlaneRenderer.setActiveCount(guiControls.flightCount);
-
-  // Store all flights for later use
-  window.allFlights = allFlights;
-
   // Initialize OrbitControls
   controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
@@ -317,17 +261,6 @@ function setupGUI() {
   const controls = new Controls();
 
   const callbacks = {
-    onPlaneSizeChange: (value) => {
-      if (currentPlaneRenderer) {
-        // Apply 2.0 scaling factor for particle planes and 1.0 for instanced planes (2x bigger than before)
-        const scaleFactor = currentPlaneRenderer.isParticleRenderer ? 2.0 : 1.0;
-        currentPlaneRenderer.setGlobalScale(value * scaleFactor);
-      }
-    },
-    onPlaneRenderTypeChange: switchPlaneRenderer,
-    onFlightCountChange: updateFlightCount,
-    onShowPlanesChange: togglePlanes,
-    onColorizePlanesChange: togglePlaneColorization,
     onDayNightEffectChange: toggleDayNightEffect,
     onAtmosphereEffectChange: toggleAtmosphereEffect,
     onResetSunPosition: () => {
@@ -337,7 +270,7 @@ function setupGUI() {
     onNightBrightnessChange: updateLighting
   };
 
-  controls.setup(callbacks, flightData.length);
+  controls.setup(callbacks);
   guiControls = controls.getControls();
 
   // Store controls instance globally for access in other functions
@@ -348,55 +281,6 @@ function setupGUI() {
   if (guiContainer) {
     guiContainer.style.display = 'none';
   }
-}
-
-function switchPlaneRenderer(renderType) {
-  // Update the render type in controls
-  guiControls.planeRenderType = renderType;
-
-  // Hide current renderer
-  if (currentPlaneRenderer && currentPlaneRenderer.getMesh()) {
-    currentPlaneRenderer.getMesh().visible = false;
-  }
-
-  // Switch to new renderer
-  if (renderType === "particles") {
-    currentPlaneRenderer = particlePlanes;
-  } else {
-    currentPlaneRenderer = instancedPlanes;
-  }
-
-  // Show new renderer
-  if (currentPlaneRenderer && currentPlaneRenderer.getMesh()) {
-    currentPlaneRenderer.getMesh().visible = guiControls.showPlanes;
-  }
-
-  // Update flights to use new renderer
-  if (window.allFlights) {
-    window.allFlights.forEach((flight) => {
-      flight.setPlaneRenderer(currentPlaneRenderer);
-    });
-  }
-
-  // Apply current settings to new renderer
-  if (currentPlaneRenderer) {
-    currentPlaneRenderer.setActiveCount(guiControls.flightCount);
-    // Apply appropriate scaling factor based on renderer type (2x bigger than before)
-    const scaleFactor = currentPlaneRenderer.isParticleRenderer ? 2.0 : 1.0;
-    currentPlaneRenderer.setGlobalScale(guiControls.planeSize * scaleFactor);
-    currentPlaneRenderer.setColorization(guiControls.colorizeePlanes);
-  }
-}
-
-function updateFlightCount(count) {
-  // Update flights array to new count
-  flights = window.allFlights.slice(0, count);
-
-  // Update current plane renderer active count
-  if (currentPlaneRenderer) {
-    currentPlaneRenderer.setActiveCount(count);
-  }
-
 }
 
 function toggleDayNightEffect(enabled) {
@@ -420,18 +304,6 @@ function updateLighting() {
 function toggleAtmosphereEffect(enabled) {
   if (earth && earth.atmosphere) {
     earth.atmosphere.mesh.visible = enabled;
-  }
-}
-
-function togglePlanes(enabled) {
-  if (currentPlaneRenderer && currentPlaneRenderer.getMesh()) {
-    currentPlaneRenderer.getMesh().visible = enabled;
-  }
-}
-
-function togglePlaneColorization(enabled) {
-  if (currentPlaneRenderer) {
-    currentPlaneRenderer.setColorization(enabled);
   }
 }
 
@@ -509,32 +381,6 @@ function animate() {
     stars.update(delta);
   }
 
-  // Update flight animations with speed multiplier (only if planes are visible)
-  if (flights && guiControls.showPlanes) {
-    const adjustedDelta = delta * guiControls.animationSpeed;
-    let needsMatrixUpdate = false;
-    let needsPlaneTypeUpdate = false;
-
-    flights.forEach((flight) => {
-      flight.update(adjustedDelta);
-      // Track if we need updates for batching
-      if (currentPlaneRenderer && !currentPlaneRenderer.isParticleRenderer) {
-        needsMatrixUpdate = true;
-      }
-    });
-
-    // Batch update instance matrices for instanced planes only once per frame
-    if (needsMatrixUpdate && currentPlaneRenderer && !currentPlaneRenderer.isParticleRenderer) {
-      currentPlaneRenderer.forceMatrixUpdate();
-    }
-  }
-
-  // Update particle planes if active
-  if (currentPlaneRenderer === particlePlanes && particlePlanes) {
-    particlePlanes.update(delta);
-  }
-
-  // Apply batched updates for flight paths (only once per frame)
   // Update sun position every frame if real-time sun is enabled
   updateSunPosition();
 

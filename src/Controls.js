@@ -9,19 +9,13 @@ export class Controls {
     this.gui = null;
     this.controllers = {};
     this.guiControls = {
-      planeSize: 5.0,
-      animationSpeed: 0.3,
-      flightCount: 3500,
       dayNightEffect: true,
       atmosphereEffect: true,
-      showPlanes: true,
       realTimeSun: true,
       simulatedTime: getCurrentUtcTimeHours(),
       timeDisplay: hoursToTimeString(getCurrentUtcTimeHours()),
       nightBrightness: 0.8,
       dayBrightness: 2.0,
-      colorizeePlanes: true,
-      planeRenderType: "instanced", // "instanced" or "particles"
     };
     this.callbacks = {};
   }
@@ -29,87 +23,13 @@ export class Controls {
   /**
    * Initialize the GUI controls
    * @param {Object} callbacks - Object containing callback functions for different controls
-   * @param {number} maxFlightCount - Maximum number of flights available in the dataset
    */
-  setup(callbacks = {}, maxFlightCount = 7000) {
+  setup(callbacks = {}) {
     this.callbacks = callbacks;
     this.gui = new GUI();
 
-    this.setupPlaneControls();
-    this.setupAnimationControls();
-    this.setupFlightControls(maxFlightCount);
     this.setupLightingControls();
     this.setupBrightnessControls();
-  }
-
-  setupPlaneControls() {
-    const planeFolder = this.gui.addFolder("Plane Controls");
-
-    planeFolder
-      .add(this.guiControls, "planeRenderType", ["instanced", "particles"])
-      .name("Render Type")
-      .onChange((value) => {
-        if (this.callbacks.onPlaneRenderTypeChange) {
-          this.callbacks.onPlaneRenderTypeChange(value);
-        }
-      });
-
-    planeFolder
-      .add(this.guiControls, "planeSize", 1.0, 10.0, 0.1)
-      .name("Size")
-      .onChange((value) => {
-        if (this.callbacks.onPlaneSizeChange) {
-          this.callbacks.onPlaneSizeChange(value);
-        }
-      });
-
-    planeFolder
-      .add(this.guiControls, "colorizeePlanes")
-      .name("Colorize")
-      .onChange((value) => {
-        if (this.callbacks.onColorizePlanesChange) {
-          this.callbacks.onColorizePlanesChange(value);
-        }
-      });
-
-    planeFolder.open();
-  }
-
-  setupAnimationControls() {
-    const animationFolder = this.gui.addFolder("Animation Controls");
-    animationFolder
-      .add(this.guiControls, "animationSpeed", 0.1, 3.0, 0.1)
-      .name("Speed")
-      .onChange((value) => {
-        if (this.callbacks.onAnimationSpeedChange) {
-          this.callbacks.onAnimationSpeedChange(value);
-        }
-      });
-
-    animationFolder.open();
-  }
-
-  setupFlightControls(maxFlightCount = 7000) {
-    const flightFolder = this.gui.addFolder("Flight Controls");
-    flightFolder
-      .add(this.guiControls, "flightCount", 1, maxFlightCount, 1)
-      .name("Count")
-      .onChange((value) => {
-        if (this.callbacks.onFlightCountChange) {
-          this.callbacks.onFlightCountChange(value);
-        }
-      });
-
-    flightFolder
-      .add(this.guiControls, "showPlanes")
-      .name("Show Planes")
-      .onChange((value) => {
-        if (this.callbacks.onShowPlanesChange) {
-          this.callbacks.onShowPlanesChange(value);
-        }
-      });
-
-    flightFolder.open();
   }
 
   setupLightingControls() {

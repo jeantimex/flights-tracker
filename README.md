@@ -1,154 +1,83 @@
-# ✈️ Flight Tracker 3D
+# 🌍 Earth Visualizer
 
-A 3D simulation of global flight paths with dynamic day/night cycles, built with Three.js. Watch thousands of flights move across a photorealistic Earth with customizable controls and performance optimizations.
+An interactive Three.js scene that renders a photorealistic Earth with real-time day/night lighting, atmospheric glow, and an animated starfield backdrop. Use the control panel to scrub through UTC time, tweak brightness levels, or toggle visual effects while orbiting smoothly around the planet.
 
-https://github.com/user-attachments/assets/a31ce178-a4ca-4692-94b4-429759189e8a
-
-[Flight Tracker Demo](https://jeantimex.github.io/flights-tracker/)
+[Live Demo](https://jeantimex.github.io/flights-tracker/)
 
 ## 🌟 Features
-
-### Core Visualization
-- **34,000+ Flight Paths**: Flight data simulation with dynamic curved trajectories
-- **Instanced Aircraft**: Efficiently rendered 3D plane models with 8 different designs
-- **Photorealistic Earth**: High-resolution textures with atmosphere effects
-- **Day/Night Cycle**: Realistic sun positioning with dynamic lighting
-- **Starfield Background**: Animated star field for immersive space experience
-
-### Interactive Controls
-- **Flight Count**: Adjust the number of visible flights (1-34,297)
-- **Animation Speed**: Control flight animation speed (0.1x to 3.0x)
-- **Plane Size**: Scale aircraft models (0.1x to 3.0x)
-- **Show/Hide Elements**: Toggle flight paths, aircraft, and colorization
-- **Lighting Controls**:
-  - Real-time sun positioning or manual time control
-  - Adjustable day/night brightness
-  - Atmosphere effects toggle
-- **Camera Controls**: Smooth orbit navigation with animated intro
-
-### Visual Effects
-- **Gradient Flight Paths**: Color-coded by origin longitude with fade effects
-- **Realistic Flight Arcs**: Dynamic altitude curves based on distance
-- **Plane Colorization**: 8 distinct color schemes for aircraft
-- **Semi-transparent Elements**: Subtle opacity for visual depth
+- **Photorealistic Earth** with high-resolution textures and subtle atmospheric scattering.
+- **Dynamic Day/Night Cycle** driven by real-world UTC time or manual time control.
+- **Animated Starfield** providing an immersive space backdrop.
+- **HUD Overlay** showing FPS (Stats.js) and the latitude/longitude beneath the camera.
+- **Responsive Orbit Controls** with an introductory camera animation and coordinate readout.
 
 ## 🎮 Controls
-
-### GUI Panel (Top Right)
-- **Plane Controls**
-  - Size: Adjust aircraft scale
-- **Animation Controls**
-  - Speed: Control animation playback speed
-- **Flight Controls**
-  - Count: Number of visible flights
-  - Show Paths: Toggle flight trajectory lines
-  - Show Planes: Toggle aircraft visibility
-  - Colorize: Enable/disable aircraft coloring
+### GUI Panel (top right)
 - **Lighting Controls**
-  - Day/Night Effect: Realistic lighting simulation
-  - Atmosphere Effect: Earth's atmospheric glow
-  - Real-time Sun: Automatic sun positioning
-  - Time Controls: Manual time adjustment
+  - `Day/Night Effect`: Enable physically-inspired lighting.
+  - `Atmosphere Effect`: Toggle the glowing atmospheric shell.
+  - `Real-time Sun`: Keep the sun synced to the current UTC time.
+  - `Time Slider`: Scrub through a simulated day when real-time mode is off.
 - **Brightness Controls**
-  - Day/Night brightness levels
+  - `Day`: Adjust directional-light intensity.
+  - `Night`: Adjust ambient-light intensity for the night side.
 
 ### Navigation
-- **Mouse**: Click and drag to orbit around Earth
-- **Scroll**: Zoom in/out
-- **Initial Animation**: Cinematic camera intro with 1-second delay
+- **Mouse drag**: Orbit around the Earth.
+- **Scroll**: Zoom in/out with clamped distance to avoid clipping.
+- **Intro Animation**: Camera eases into position once textures finish loading.
 
 ### Status Display
-- **FPS Counter**: Live performance monitoring (top left)
-- **Coordinates**: Live lat/lng of camera center point (bottom right)
+- **FPS Counter**: Hidden during loading, shown once the scene is ready.
+- **Coordinates**: Live latitude/longitude of the point directly under the camera.
 
-## ⚡ Performance Optimizations
-
-### Rendering Efficiency
-- **Instanced Rendering**: Single draw call for all aircraft using `THREE.InstancedMesh`
-- **Merged Geometry**: Combined flight paths in single `LineSegments` mesh
-- **Conditional Updates**: Skip expensive operations when elements are hidden
-- **Draw Range Optimization**: Only render visible flight paths
-
-### Animation Optimizations
-- **Selective Processing**: Stop flight animations when planes are hidden
-- **Matrix Caching**: Skip matrix calculations for invisible elements
-- **Visibility Checks**: Early returns prevent unnecessary GPU operations
-- **Buffer Reuse**: Pre-allocated geometry buffers for maximum efficiency
-
-### Memory Management
-- **Geometry Sharing**: Reused plane geometry across instances
-- **Texture Optimization**: SVG-to-canvas texture pipeline
-- **Efficient Data Structures**: Float32Arrays for position/color data
+## ⚡ Performance Notes
+- Lightweight scene with only a handful of draw calls.
+- Sun position updates are batched to minimize per-frame work.
+- Starfield animation uses shader uniforms for smooth twinkling without heavy CPU updates.
 
 ## 🛠️ Technical Stack
-
-- **Three.js**: 3D graphics and WebGL rendering
-- **dat.GUI**: Interactive control panel
-- **Stats.js**: Performance monitoring
-- **Vanilla JavaScript**: ES6 modules with clean architecture
+- **Three.js** for WebGL rendering.
+- **dat.GUI** for the control panel.
+- **Stats.js** for live performance metrics.
+- **Vite** for fast development and bundling.
 
 ## 🚀 Getting Started
-
 ### Prerequisites
-- Modern web browser with WebGL support
-- Local development server (due to CORS restrictions)
+- Modern browser with WebGL support.
+- Local development server (required for loading textures).
 
 ### Installation
+```bash
+git clone https://github.com/jeantimex/flights-tracker.git
+cd flights-tracker
+npm install
+```
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/jeantimex/flights-tracker.git
-   cd flights-tracker
-   ```
+### Development
+```bash
+npm run dev
+```
+Open the printed URL (defaults to `http://localhost:5173`).
 
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
-
-3. **Start development server**
-   ```bash
-   npm run dev
-   ```
-
-4. **Open in browser**
-   Navigate to `http://localhost:5173` (or your configured port)
-
-### Building for Production
-
+### Production Build
 ```bash
 npm run build
 ```
 
 ## 🔧 Configuration
-
-### Flight Data
-- Located in `src/Data.js`
-- Format: Array of objects with `departure`, `arrival`, and `speed` properties
-- Coordinates in decimal degrees (latitude/longitude)
-
-### Performance Tuning
-- Adjust `maxFlightCount` in Controls.js for different datasets
-- Modify `instancedPlanes` count for memory optimization
-
-## 📊 Performance Metrics
-
-- **Rendering**: 60 FPS with 34,000+ flight simulation on modern hardware
-- **Memory**: ~200MB RAM usage for full dataset
-- **Draw Calls**: Minimized to ~10 calls per frame
-- **Optimization**: 90%+ performance improvement when elements hidden
+- Adjust default brightness or sun behaviour inside `src/Controls.js`.
+- Tweak camera defaults and intro animation timings in `src/main.js`.
 
 ## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/amazing-feature`
-3. Commit changes: `git commit -m 'Add amazing feature'`
-4. Push to branch: `git push origin feature/amazing-feature`
-5. Open a Pull Request
+1. Fork the repository.
+2. Create a feature branch: `git checkout -b feature/amazing-feature`.
+3. Commit changes: `git commit -m 'Add amazing feature'`.
+4. Push to the branch: `git push origin feature/amazing-feature`.
+5. Open a pull request.
 
 ## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT — see the [LICENSE](LICENSE) file for details.
 
 ---
 
